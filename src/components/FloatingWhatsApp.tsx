@@ -1,10 +1,12 @@
 import { MessageCircle } from "lucide-react";
-import { SOCIAL } from "./Footer";
+import { useProfileInformation } from "./Footer";
 
 export function FloatingWhatsApp() {
+  const { data: profile } = useProfileInformation();
+  if (!profile?.whatsapp_url) return null;
   return (
     <a
-      href={SOCIAL.whatsapp}
+      href={profile.whatsapp_url}
       target="_blank"
       rel="noreferrer noopener"
       aria-label="Chat on WhatsApp"

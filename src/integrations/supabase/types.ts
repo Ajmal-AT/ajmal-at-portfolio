@@ -50,51 +50,6 @@ export type Database = {
         }
         Relationships: []
       }
-      posts: {
-        Row: {
-          author_id: string | null
-          content: string
-          cover_url: string | null
-          created_at: string
-          excerpt: string | null
-          id: string
-          published: boolean
-          published_at: string | null
-          slug: string
-          tags: string[]
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          author_id?: string | null
-          content?: string
-          cover_url?: string | null
-          created_at?: string
-          excerpt?: string | null
-          id?: string
-          published?: boolean
-          published_at?: string | null
-          slug: string
-          tags?: string[]
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          author_id?: string | null
-          content?: string
-          cover_url?: string | null
-          created_at?: string
-          excerpt?: string | null
-          id?: string
-          published?: boolean
-          published_at?: string | null
-          slug?: string
-          tags?: string[]
-          title?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           avatar_url: string | null

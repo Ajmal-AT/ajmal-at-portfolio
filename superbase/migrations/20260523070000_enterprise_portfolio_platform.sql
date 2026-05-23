@@ -42,13 +42,17 @@ begin
     auth.uid(),
     tg_op,
     tg_table_name,
-    coalesce(new.id, old.id),
+    case when tg_op = 'DELETE' then old.id else new.id end,
     case when tg_op in ('UPDATE', 'DELETE') then to_jsonb(old) else null end,
     case when tg_op in ('INSERT', 'UPDATE') then to_jsonb(new) else null end
   );
   return coalesce(new, old);
 end;
 $$;
+
+insert into storage.buckets (id, name, public)
+values ('portfolio-media', 'portfolio-media', true)
+on conflict (id) do nothing;
 
 create table if not exists public.audit_logs (
   id uuid primary key default gen_random_uuid(),

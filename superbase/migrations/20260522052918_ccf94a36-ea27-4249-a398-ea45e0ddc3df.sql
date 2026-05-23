@@ -97,48 +97,6 @@ on public.user_roles for all to authenticated
 using (public.has_role(auth.uid(), 'admin'))
 with check (public.has_role(auth.uid(), 'admin'));
 
--- Posts (blog)
-create table public.posts (
-  id uuid primary key default gen_random_uuid(),
-  slug text not null unique,
-  title text not null,
-  excerpt text,
-  content text not null default '',
-  cover_url text,
-  tags text[] not null default '{}',
-  published boolean not null default false,
-  published_at timestamptz,
-  author_id uuid references auth.users(id) on delete set null,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-alter table public.posts enable row level security;
-create index posts_published_idx on public.posts (published, published_at desc);
-
-create trigger posts_set_updated_at
-before update on public.posts
-for each row execute function public.set_updated_at();
-
-create policy "Published posts are public"
-on public.posts for select to anon, authenticated
-using (published = true);
-
-create policy "Admins can read all posts"
-on public.posts for select to authenticated
-using (public.has_role(auth.uid(), 'admin'));
-
-create policy "Admins can insert posts"
-on public.posts for insert to authenticated
-with check (public.has_role(auth.uid(), 'admin'));
-
-create policy "Admins can update posts"
-on public.posts for update to authenticated
-using (public.has_role(auth.uid(), 'admin'));
-
-create policy "Admins can delete posts"
-on public.posts for delete to authenticated
-using (public.has_role(auth.uid(), 'admin'));
-
 -- Inquiries (contact form)
 create table public.inquiries (
   id uuid primary key default gen_random_uuid(),

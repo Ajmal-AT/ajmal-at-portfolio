@@ -7,16 +7,18 @@ export const Route = createFileRoute("/_authenticated/admin/")({
   component: AdminHome,
 });
 
+const db = supabase as any;
+
 function AdminHome() {
   const { data } = useQuery({
     queryKey: ["admin-overview"],
     queryFn: async () => {
       const [projects, services, inquiries, open, media] = await Promise.all([
-        supabase.from("projects").select("id", { count: "exact", head: true }),
-        supabase.from("software_services").select("id", { count: "exact", head: true }).eq("is_active", true),
-        supabase.from("inquiries").select("id", { count: "exact", head: true }),
-        supabase.from("inquiries").select("id", { count: "exact", head: true }).eq("handled", false),
-        supabase.from("media_assets").select("id", { count: "exact", head: true }),
+        db.from("projects").select("id", { count: "exact", head: true }),
+        db.from("software_services").select("id", { count: "exact", head: true }).eq("is_active", true),
+        db.from("inquiries").select("id", { count: "exact", head: true }),
+        db.from("inquiries").select("id", { count: "exact", head: true }).eq("handled", false),
+        db.from("media_assets").select("id", { count: "exact", head: true }),
       ]);
       return {
         projects: projects.count ?? 0,
