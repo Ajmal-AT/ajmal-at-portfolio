@@ -38,10 +38,18 @@ function emptyRecord(table: ContentTable): AnyRecord {
 
 function normalizeRecord(record: AnyRecord) {
   const payload = { ...record };
+
   for (const key of Object.keys(payload)) {
-    if (hiddenFields.has(key)) delete payload[key];
-    if (payload[key] === "") payload[key] = null;
+    if (hiddenFields.has(key)) {
+      delete payload[key];
+      continue;
+    }
+
+    if (payload[key] === "") {
+      delete payload[key];
+    }
   }
+
   return payload;
 }
 
@@ -145,7 +153,12 @@ function ContentStudio() {
         const { error } = await db.from(table).update(payload).eq("id", record.id);
         if (error) throw error;
       } else {
-        const { error } = await db.from(table).insert(payload);
+        const { data: { session } } = await db.auth.getSession();
+        if (!session) throw new Error("User must be logged in.");
+        const enrichedPayload = { ...payload, user_id: session.user.id };
+        console.log('payload from admin', enrichedPayload);
+        const { error } = await db.from(table).insert(enrichedPayload);
+        console.log('error from admin', error);
         if (error) throw error;
       }
     },

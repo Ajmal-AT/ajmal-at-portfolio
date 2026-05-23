@@ -121,45 +121,40 @@ export function seoHead(pageName: string, fallbackTitle: string) {
 }
 
 export async function uploadMedia(file: File, folder = "portfolio") {
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  if (cloudName && uploadPreset) {
-    const form = new FormData();
-    form.append("file", file);
-    form.append("upload_preset", uploadPreset);
-    form.append("folder", folder);
-    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
-      method: "POST",
-      body: form,
-    });
-    if (!response.ok) throw new Error("Cloudinary upload failed");
-    const payload = await response.json();
-    await db.from("media_assets").insert({
-      provider: "cloudinary",
-      asset_type: file.type || "application/octet-stream",
-      file_name: file.name,
-      public_url: payload.secure_url,
-      metadata: payload,
-      is_active: true,
-    });
-    return payload.secure_url as string;
-  }
+  if (!session) throw new Error("User must be logged in to upload media.");
 
-  const path = `${folder}/${crypto.randomUUID()}-${file.name}`;
-  const { error } = await db.storage.from("portfolio-media").upload(path, file, {
-    contentType: file.type,
-    upsert: false,
-  });
-  if (error) throw error;
-  const { data } = db.storage.from("portfolio-media").getPublicUrl(path);
-  await db.from("media_assets").insert({
+  const key = `${folder}/${crypto.randomUUID()}-${file.name}`;
+
+  const { error: uploadError } = await (supabase as any)
+    .storage
+    .from("portfolio-media")   // your bucket name
+    .upload(key, file, {
+      contentType: file.type || "application/octet-stream",
+      upsert: false,
+    });
+
+  if (uploadError) throw uploadError;
+
+  const { data } = (supabase as any)
+    .storage
+    .from("portfolio-media")
+    .getPublicUrl(key);
+
+  const publicUrl = data.publicUrl as string;
+
+  await (supabase as any).from("media_assets").insert({
+    user_id: session.user.id,
     provider: "supabase",
     asset_type: file.type || "application/octet-stream",
     file_name: file.name,
-    public_url: data.publicUrl,
-    storage_path: path,
+    public_url: publicUrl,
+    storage_path: key,
     is_active: true,
   });
-  return data.publicUrl as string;
+
+  return publicUrl;
 }
