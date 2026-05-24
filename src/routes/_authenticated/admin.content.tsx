@@ -36,18 +36,55 @@ function emptyRecord(table: ContentTable): AnyRecord {
   return templates[table] ?? common;
 }
 
-function normalizeRecord(record: AnyRecord) {
-  const payload = { ...record };
+const ARRAY_FIELDS = new Set([
+  "roles",
+  "skills",
+  "technologies",
+]);
 
-  for (const key of Object.keys(payload)) {
-    if (hiddenFields.has(key)) {
-      delete payload[key];
+function normalizeRecord(record: AnyRecord): AnyRecord {
+  const payload: AnyRecord = {};
+
+  for (const [key, value] of Object.entries(record)) {
+    // Skip hidden fields
+    if (hiddenFields.has(key)) continue;
+
+    // Skip empty values
+    if (
+      value === "" ||
+      value === null ||
+      value === undefined
+    ) {
       continue;
     }
 
-    if (payload[key] === "") {
-      delete payload[key];
+    // Handle PostgreSQL array fields
+    if (ARRAY_FIELDS.has(key)) {
+      if (Array.isArray(value)) {
+        payload[key] = value
+          .map((item) => String(item).trim())
+          .filter(Boolean);
+      } else if (typeof value === "string") {
+        payload[key] = value
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean);
+      }
+
+      continue;
     }
+
+    // Convert numeric strings to numbers
+    if (
+      typeof value === "string" &&
+      !isNaN(Number(value)) &&
+      value.trim() !== ""
+    ) {
+      payload[key] = Number(value);
+      continue;
+    }
+
+    payload[key] = value;
   }
 
   return payload;
@@ -148,23 +185,65 @@ function ContentStudio() {
 
   const save = useMutation({
     mutationFn: async (record: AnyRecord) => {
-      const payload = normalizeRecord(record);
-      if (record.id) {
-        const { error } = await db.from(table).update(payload).eq("id", record.id);
-        if (error) throw error;
-      } else {
-        const { data: { session } } = await db.auth.getSession();
-        if (!session) throw new Error("User must be logged in.");
-        const enrichedPayload = { ...payload, user_id: session.user.id };
-        console.log('payload from admin', enrichedPayload);
-        const { error } = await db.from(table).insert(enrichedPayload);
-        console.log('error from admin', error);
-        if (error) throw error;
+      try {
+        const payload = normalizeRecord(record);
+
+        if (record.id) {
+          const { data, error } = await db
+            .from(table)
+            .update(payload)
+            .eq("id", record.id)
+            .select()
+            .single();
+
+          if (error) {
+            throw new Error(error.message);
+          }
+
+          return data;
+        }
+
+        const {
+          data: { session },
+          error: sessionError,
+        } = await db.auth.getSession();
+
+        if (sessionError) {
+          throw new Error(sessionError.message);
+        }
+
+        if (!session) {
+          throw new Error("User must be logged in.");
+        }
+
+        const enrichedPayload = {
+          ...payload,
+        };
+
+        const { data, error } = await db
+          .from(table)
+          .insert([enrichedPayload])
+          .select()
+          .single();
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        return data;
+      } catch (error: any) {
+        throw new Error(
+          error?.message || "Something went wrong while saving data."
+        );
       }
     },
-    onSuccess: async () => {
-      setEditing(null);
-      await qc.invalidateQueries({ queryKey: ["content-studio", table] });
+
+    onSuccess: (data) => {
+      console.log("Mutation Success:", data);
+    },
+
+    onError: (error: any) => {
+      console.error("Mutation Error:", error.message);
     },
   });
 
