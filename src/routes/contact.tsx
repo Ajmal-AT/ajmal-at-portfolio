@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { CheckCircle2, Github, Instagram, Link2, Linkedin, Loader2, Mail, MessageCircle, Send } from "lucide-react";
+import { CheckCircle2, Github, Instagram, Link2, Linkedin, Loader2, Mail, MessageCircle, Send, ShieldCheck } from "lucide-react";
 import { useProfileInformation } from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { listContent, seoHead } from "@/lib/content";
@@ -30,27 +30,44 @@ function Contact() {
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    const form = e.currentTarget;
+
     setError(null);
     setLoading(true);
-    const fd = new FormData(e.currentTarget);
+
+    const fd = new FormData(form);
+
     const payload = {
       name: String(fd.get("name") || "").trim(),
       email: String(fd.get("email") || "").trim(),
       service: String(fd.get("service") || "") || null,
       budget: String(fd.get("budget") || "") || null,
+      type: String(fd.get("type") || "") || null,
       timeline: String(fd.get("timeline") || "") || null,
       message: String(fd.get("message") || "").trim(),
     };
+
     if (!payload.name || !payload.email || !payload.message) {
       setError("Please fill name, email and message.");
       setLoading(false);
       return;
     }
-    const { error } = await supabase.from("inquiries").insert(payload);
+
+    const { data, error } = await supabase
+      .from("inquiries")
+      .insert(payload)
+      .select();
+
     setLoading(false);
-    if (error) { setError(error.message); return; }
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
     setSent(true);
-    e.currentTarget.reset();
+    form.reset();
   };
 
   const channels = [
@@ -72,23 +89,144 @@ function Contact() {
       <section className="mx-auto max-w-7xl px-6 py-16">
         <div className="grid gap-8 lg:grid-cols-12">
           <div className="lg:col-span-7">
-            <form onSubmit={submit} className="rounded-3xl border border-border bg-surface p-6 md:p-8">
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Name" name="name" required />
-                <Field label="Email" name="email" type="email" required />
-                <Select label="Service Needed" name="service" options={services} />
-                <Field label="Budget" name="budget" placeholder="Project budget" />
-                <Field label="Project Type" name="type" placeholder="e.g. SaaS dashboard" />
-                <Field label="Timeline" name="timeline" placeholder="Target timeline" />
+            <form
+              onSubmit={submit}
+              className="rounded-3xl border border-border bg-surface/80 p-6 shadow-xl backdrop-blur md:p-8"
+            >
+              <div className="mb-8">
+                <h2 className="font-display text-2xl font-semibold tracking-tight">
+                  Start Your Project
+                </h2>
+
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Share your requirements, budget and timeline. You'll receive a
+                  professional response with scope, pricing and next steps.
+                </p>
               </div>
-              <div className="mt-4">
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Message</label>
-                <textarea name="message" required rows={5} placeholder="Tell me about the goals, audience and what success looks like." className="w-full rounded-lg border border-border bg-background/60 px-3.5 py-2.5 text-sm outline-none transition focus:border-primary/60" />
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <Field
+                  label="Full Name"
+                  name="name"
+                  required
+                  placeholder="Ajmal A T"
+                />
+
+                <Field
+                  label="Email Address"
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="you@example.com"
+                />
+
+                <Select
+                  label="Service Needed"
+                  name="service"
+                  options={[
+                    "Custom Software & SaaS — From ₹49,999",
+                    "Backend & APIs — Custom Quote",
+                    "Enterprise Systems — From ₹99,999",
+                    "Premium Developer Portfolio — From ₹5,999",
+                    "Business Portfolio Platform — From ₹9,999",
+                    "ATS Resume Rewrite — From ₹199",
+                    "LinkedIn Optimization — From ₹999",
+                  ]}
+                />
+
+                <Select
+                  label="Estimated Budget"
+                  name="budget"
+                  options={[
+                    "₹199 - ₹999",
+                    "₹1,000 - ₹5,000",
+                    "₹5,000 - ₹15,000",
+                    "₹15,000 - ₹50,000",
+                    "₹50,000 - ₹1,00,000",
+                    "₹1,00,000 - ₹5,00,000",
+                    "₹5,00,000+",
+                  ]}
+                />
+
+                <Select
+                  label="Project Type"
+                  name="type"
+                  options={[
+                    "Resume / LinkedIn Optimization",
+                    "Developer Portfolio",
+                    "Business Website",
+                    "Custom Web Application",
+                    "SaaS Platform",
+                    "Backend API System",
+                    "Enterprise Dashboard",
+                    "Automation Platform",
+                    "Admin Panel",
+                    "Cloud Infrastructure",
+                  ]}
+                />
+
+                <Select
+                  label="Preferred Timeline"
+                  name="timeline"
+                  options={[
+                    "1 Week",
+                    "2 - 4 Weeks",
+                    "1 - 2 Months",
+                    "2 - 4 Months",
+                    "4+ Months",
+                    "Flexible Timeline",
+                  ]}
+                />
               </div>
-              {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
-              <button type="submit" disabled={loading} className="mt-6 inline-flex items-center gap-2 rounded-lg bg-gradient-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-glow transition-transform hover:scale-[1.02] disabled:opacity-60">
-                {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending...</> : sent ? <><CheckCircle2 className="h-4 w-4" /> Sent</> : <>Send inquiry <Send className="h-4 w-4" /></>}
-              </button>
+
+              <div className="mt-5">
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">
+                  Project Details
+                </label>
+
+                <textarea
+                  name="message"
+                  required
+                  rows={6}
+                  placeholder="Describe your goals, features, business requirements, integrations, target audience and expected outcome..."
+                  className="w-full rounded-2xl border border-border bg-background/60 px-4 py-3 text-sm outline-none transition-all duration-200 placeholder:text-muted-foreground/60 focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
+              {error && (
+                <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
+
+              <div className="mt-6 flex flex-wrap items-center gap-4">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-glow transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Sending Inquiry...
+                    </>
+                  ) : sent ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      Inquiry Sent Successfully
+                    </>
+                  ) : (
+                    <>
+                      Send Inquiry
+                      <Send className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+
+                <p className="text-xs text-muted-foreground">
+                  Average response time: within 24 hours
+                </p>
+              </div>
             </form>
           </div>
           <aside className="lg:col-span-5">
