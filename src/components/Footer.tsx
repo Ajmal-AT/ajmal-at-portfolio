@@ -27,8 +27,17 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-6 py-14">
         <div className="grid gap-10 md:grid-cols-4">
           <div className="md:col-span-2">
-            <div className="font-display text-xl font-semibold">{profile?.full_name}</div>
+            <div className="font-display text-xl font-semibold">
+              <span className="text-white">
+                {profile?.full_name?.split(" ")[0]}
+              </span>{" "}
+              <span className="text-blue-500">
+                {profile?.full_name?.split(" ").slice(1).join(" ")}
+              </span>
+            </div>
+
             <p className="mt-3 max-w-md text-sm text-muted-foreground">{profile?.short_intro ?? profile?.bio}</p>
+
             <div className="mt-5 flex items-center gap-2">
               {socials.map(({ href, Icon, label }) => (
                 <a key={label} aria-label={label} href={href} target="_blank" rel="noreferrer noopener" className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground">
@@ -57,7 +66,7 @@ export function Footer() {
         </div>
         <div className="mt-12 flex flex-col items-start justify-between gap-3 border-t border-border pt-6 text-xs text-muted-foreground md:flex-row md:items-center">
           <p>© {new Date().getFullYear()} {profile?.full_name}.</p>
-          <p>{profile?.availability_status} / {profile?.location}</p>
+          <p>{profile?.availability_status} · {profile?.location}</p>
         </div>
       </div>
     </footer>

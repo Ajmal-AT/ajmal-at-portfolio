@@ -16,8 +16,8 @@ import {
   AlertCircle,
   ChevronDown,
   Layers,
-  Eye,
-  EyeOff,
+  ImagePlus,
+  GripVertical,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,11 +37,11 @@ const HIDDEN_FIELDS = new Set([
   "id",
 ]);
 
-// Tables that don't use user_id (most content tables)
-// The old code was injecting user_id which caused PGRST204 errors
+// Tables that need user_id injected on INSERT
 const TABLES_WITH_USER_ID = new Set(["media_assets"]);
 
-// Default empty record templates per table
+// ─── Empty record templates ───────────────────────────────────────────────────
+
 function emptyRecord(table: ContentTable): AnyRecord {
   const common = { is_active: true, display_order: 0 };
   const templates: Record<string, AnyRecord> = {
@@ -51,6 +51,7 @@ function emptyRecord(table: ContentTable): AnyRecord {
       professional_title: "",
       bio: "",
       short_intro: "",
+      long_intro: "",
       availability_status: "",
       email: "",
       phone: "",
@@ -60,6 +61,8 @@ function emptyRecord(table: ContentTable): AnyRecord {
       instagram_url: "",
       whatsapp_url: "",
       linktree_url: "",
+      profile_image: "",
+      hero_background: "",
       years_of_experience: 0,
       projects_delivered: 0,
       happy_clients: 0,
@@ -67,38 +70,86 @@ function emptyRecord(table: ContentTable): AnyRecord {
       is_visible: true,
       is_active: true,
     },
-    resumes: { title: "", type: "INDIAN", resume_url: "", version: 1, is_active: true },
-    skills: { skill_name: "", category: "", proficiency_level: 80, ...common },
+    resumes: {
+      title: "",
+      type: "INDIAN",
+      resume_url: "",
+      thumbnail: "",
+      version: 1,
+      downloads_count: 0,
+      views_count: 0,
+      is_active: true,
+    },
+    skills: {
+      skill_name: "",
+      category: "",
+      proficiency_level: 80,
+      logo_url: "",
+      ...common,
+    },
     software_services: {
       title: "",
       slug: "",
+      short_description: "",
+      full_description: "",
       starting_price: 0,
       pricing_type: "",
+      icon: "",
+      image_url: "",
       features: [],
+      ownership_note: "",
       ...common,
     },
-    resume_services: { title: "", starting_price: 0, features: [], delivery_time: "", ...common },
+    resume_services: {
+      title: "",
+      short_description: "",
+      full_description: "",
+      starting_price: 0,
+      features: [],
+      delivery_time: "",
+      image_url: "",
+      ...common,
+    },
     portfolio_services: {
       title: "",
+      short_description: "",
+      full_description: "",
       starting_price: 0,
       features: [],
       technologies: [],
+      image_url: "",
       ...common,
     },
     projects: {
       title: "",
       slug: "",
+      category: "",
+      short_description: "",
+      full_description: "",
       tech_stack: [],
+      client_name: "",
+      client_feedback: "",
+      project_url: "",
+      github_url: "",
+      thumbnail: "",
       gallery_images: [],
+      demo_video: "",
       featured: false,
       vip_project: false,
+      delivery_date: "",
       status: "published",
       ...common,
     },
     testimonials: {
       client_name: "",
+      client_email: "",
+      client_image: "",
+      company_name: "",
       review: "",
       rating: 5,
+      project_reference: "",
+      project_image: "",
+      video_testimonial: "",
       moderation_status: "approved",
       ...common,
     },
@@ -110,41 +161,103 @@ function emptyRecord(table: ContentTable): AnyRecord {
       technologies_mastered: 0,
       is_active: true,
     },
-    technology_stack: { technology_name: "", category: "", proficiency: 80, years_of_usage: 1, ...common },
-    seo_configurations: { page_name: "", title: "", keywords: [], structured_data: {}, is_active: true },
-    terminal_showcase: { terminal_title: "", commands: [], animation_values: {}, is_active: true },
-    featured_services: { icon: "Code2", title: "", pricing_text: "", ...common },
-    career_journey: { year_range: "", role_title: "", ...common },
-    engineering_principles: { title: "", icon: "Code2", ...common },
-    site_sections: { page_name: "", section_key: "", metadata: {}, ...common },
-    media_assets: { provider: "supabase", public_url: "", metadata: {}, is_active: true },
+    technology_stack: {
+      technology_name: "",
+      logo_url: "",
+      category: "",
+      official_website: "",
+      proficiency: 80,
+      years_of_usage: 1,
+      ...common,
+    },
+    seo_configurations: {
+      page_name: "",
+      title: "",
+      meta_description: "",
+      og_title: "",
+      og_description: "",
+      canonical_url: "",
+      keywords: [],
+      favicon: "",
+      og_image: "",
+      structured_data: {},
+      is_active: true,
+    },
+    terminal_showcase: {
+      terminal_title: "",
+      username: "",
+      designation: "",
+      backend_stack: "",
+      frontend_stack: "",
+      cloud_stack: "",
+      focus_area: "",
+      deploy_speed: "",
+      commands: [],
+      animation_values: {},
+      is_active: true,
+    },
+    featured_services: {
+      icon: "Code2",
+      title: "",
+      description: "",
+      pricing_text: "",
+      ...common,
+    },
+    career_journey: {
+      year_range: "",
+      role_title: "",
+      company_name: "",
+      description: "",
+      ...common,
+    },
+    engineering_principles: {
+      title: "",
+      description: "",
+      icon: "Code2",
+      ...common,
+    },
+    site_sections: {
+      page_name: "",
+      section_key: "",
+      eyebrow: "",
+      heading: "",
+      body: "",
+      cta_label: "",
+      cta_url: "",
+      secondary_cta_label: "",
+      secondary_cta_url: "",
+      media_url: "",
+      metadata: {},
+      ...common,
+    },
+    media_assets: {
+      provider: "supabase",
+      asset_type: "",
+      file_name: "",
+      public_url: "",
+      storage_path: "",
+      alt_text: "",
+      metadata: {},
+      is_active: true,
+    },
   };
   return templates[table] ?? common;
 }
 
-/**
- * Cleans the record before sending to Supabase:
- * - Removes hidden fields (id, timestamps)
- * - Removes empty strings / nulls (let DB use defaults)
- * - Does NOT inject user_id unless the table actually has that column
- */
+// ─── Payload normalisation ────────────────────────────────────────────────────
+
 function normalizeRecord(record: AnyRecord): AnyRecord {
   const payload: AnyRecord = {};
-
   for (const [key, value] of Object.entries(record)) {
-    // Never send managed fields
     if (HIDDEN_FIELDS.has(key)) continue;
-
-    // Skip nullish / empty string — let the DB default handle it
+    // Keep booleans and 0 values; skip only true empties
     if (value === "" || value === null || value === undefined) continue;
-
     payload[key] = value;
   }
-
   return payload;
 }
 
-// ─── Field display helpers ────────────────────────────────────────────────────
+// ─── Field type helpers ───────────────────────────────────────────────────────
 
 function isBooleanField(field: string, value: unknown): boolean {
   return (
@@ -159,10 +272,11 @@ function isLongTextField(field: string): boolean {
   return (
     field.includes("description") ||
     field.includes("intro") ||
-    field.includes("bio") ||
+    field === "bio" ||
     field === "review" ||
     field === "body" ||
-    field === "ownership_note"
+    field === "ownership_note" ||
+    field === "client_feedback"
   );
 }
 
@@ -175,11 +289,162 @@ function isMediaField(field: string): boolean {
     field.includes("resume_url") ||
     field.includes("logo_url") ||
     field.includes("og_image") ||
-    field.includes("media_url")
+    field.includes("media_url") ||
+    field === "hero_background" ||
+    field === "favicon"
   );
 }
 
-// ─── Editable field component ─────────────────────────────────────────────────
+function isGalleryField(field: string): boolean {
+  return field === "gallery_images";
+}
+
+function isJsonField(field: string, value: unknown): boolean {
+  return (
+    (Array.isArray(value) && !isGalleryField(field)) ||
+    (value !== null && typeof value === "object" && !Array.isArray(value))
+  );
+}
+
+// ─── Gallery image uploader ───────────────────────────────────────────────────
+
+function GalleryField({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+
+  const images: string[] = Array.isArray(value) ? value : [];
+
+  const handleUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    try {
+      const urls = await Promise.all(
+        Array.from(files).map((file) => uploadMedia(file, "gallery"))
+      );
+      onChange([...images, ...urls]);
+    } catch (err) {
+      console.error("Gallery upload failed:", err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeImage = (idx: number) => {
+    onChange(images.filter((_, i) => i !== idx));
+  };
+
+  const moveImage = (idx: number, delta: number) => {
+    const next = [...images];
+    const target = idx + delta;
+    if (target < 0 || target >= next.length) return;
+    [next[idx], next[target]] = [next[target], next[idx]];
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Existing images grid */}
+      {images.length > 0 && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {images.map((url, idx) => (
+            <div
+              key={idx}
+              className="group relative aspect-video overflow-hidden rounded-lg border border-border/60 bg-background/60"
+            >
+              <img
+                src={url}
+                alt={`Gallery ${idx + 1}`}
+                className="h-full w-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+              />
+              {/* Overlay controls */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => moveImage(idx, -1)}
+                    disabled={idx === 0}
+                    className="rounded-md bg-white/10 p-1.5 text-white hover:bg-white/20 disabled:opacity-30"
+                    title="Move left"
+                  >
+                    <ArrowUp className="h-3 w-3 -rotate-90" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveImage(idx, 1)}
+                    disabled={idx === images.length - 1}
+                    className="rounded-md bg-white/10 p-1.5 text-white hover:bg-white/20 disabled:opacity-30"
+                    title="Move right"
+                  >
+                    <ArrowDown className="h-3 w-3 -rotate-90" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeImage(idx)}
+                    className="rounded-md bg-destructive/80 p-1.5 text-white hover:bg-destructive"
+                    title="Remove"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+                <span className="font-mono text-[10px] text-white/60">
+                  {idx + 1} / {images.length}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* URL input row */}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          placeholder="Paste image URL and press Enter…"
+          className="flex h-9 w-full min-w-0 flex-1 rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-sm text-foreground placeholder-muted-foreground/40 outline-none transition focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              const val = (e.target as HTMLInputElement).value.trim();
+              if (val) {
+                onChange([...images, val]);
+                (e.target as HTMLInputElement).value = "";
+              }
+            }
+          }}
+        />
+        {/* Upload from device */}
+        <label className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border/60 bg-surface/60 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary">
+          {uploading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <UploadCloud className="h-3.5 w-3.5" />
+          )}
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => handleUpload(e.target.files)}
+          />
+        </label>
+      </div>
+
+      <p className="font-mono text-[10px] text-muted-foreground/50">
+        {images.length} image{images.length !== 1 ? "s" : ""} · Upload files or paste URLs · Hover image to reorder/remove
+      </p>
+    </div>
+  );
+}
+
+// ─── Generic editable field ───────────────────────────────────────────────────
 
 function EditableField({
   field,
@@ -195,7 +460,17 @@ function EditableField({
   const baseInput =
     "w-full rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-sm text-foreground placeholder-muted-foreground/40 outline-none transition focus:border-primary/50 focus:ring-1 focus:ring-primary/20";
 
-  // Boolean / toggle
+  // Gallery images — special multi-upload UI
+  if (isGalleryField(field)) {
+    return (
+      <GalleryField
+        value={Array.isArray(value) ? (value as string[]) : []}
+        onChange={(next) => onChange(next)}
+      />
+    );
+  }
+
+  // Boolean toggle
   if (isBooleanField(field, value)) {
     return (
       <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border/60 bg-background/40 px-3 py-2.5">
@@ -215,7 +490,7 @@ function EditableField({
   }
 
   // Arrays and objects → JSON textarea
-  if (Array.isArray(value) || (value !== null && typeof value === "object")) {
+  if (isJsonField(field, value)) {
     return (
       <textarea
         value={JSON.stringify(value ?? (Array.isArray(value) ? [] : {}), null, 2)}
@@ -223,7 +498,7 @@ function EditableField({
           try {
             onChange(JSON.parse(e.target.value));
           } catch {
-            // keep as string while editing
+            // keep editing
           }
         }}
         rows={5}
@@ -233,7 +508,7 @@ function EditableField({
     );
   }
 
-  // Long text
+  // Long text → textarea
   if (isLongTextField(field)) {
     return (
       <textarea
@@ -241,11 +516,12 @@ function EditableField({
         onChange={(e) => onChange(e.target.value)}
         rows={4}
         className={baseInput}
+        placeholder={field.replace(/_/g, " ")}
       />
     );
   }
 
-  // Media / URL with upload button
+  // Media/URL field with optional upload button
   return (
     <div className="flex gap-2">
       <input
@@ -255,7 +531,7 @@ function EditableField({
           onChange(typeof value === "number" ? Number(e.target.value) : e.target.value)
         }
         className={`${baseInput} min-w-0 flex-1`}
-        placeholder={field}
+        placeholder={field.replace(/_/g, " ")}
       />
       {isMediaField(field) && (
         <label className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border/60 bg-surface/60 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary">
@@ -315,7 +591,7 @@ function rowSubtitle(row: AnyRecord): string {
   );
 }
 
-// ─── Toast notification ───────────────────────────────────────────────────────
+// ─── Toast ────────────────────────────────────────────────────────────────────
 
 function Toast({
   type,
@@ -346,6 +622,17 @@ function Toast({
   );
 }
 
+// ─── Field width helper ───────────────────────────────────────────────────────
+
+function isWideField(field: string, value: unknown): boolean {
+  return (
+    isLongTextField(field) ||
+    isGalleryField(field) ||
+    (Array.isArray(value) && !isGalleryField(field)) ||
+    (value !== null && typeof value === "object" && !Array.isArray(value))
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 function ContentStudio() {
@@ -370,13 +657,12 @@ function ContentStudio() {
     },
   });
 
-  // ── Save mutation (INSERT or UPDATE) ───────────────────────────────────────
+  // ── Save mutation ──────────────────────────────────────────────────────────
   const save = useMutation({
     mutationFn: async (record: AnyRecord) => {
       const payload = normalizeRecord(record);
 
       if (record.id) {
-        // UPDATE existing row
         const { data, error } = await db
           .from(table)
           .update(payload)
@@ -387,15 +673,9 @@ function ContentStudio() {
         return data;
       }
 
-      // INSERT new row
-      // Only add user_id for tables that actually have that column
       let enrichedPayload = { ...payload };
-
       if (TABLES_WITH_USER_ID.has(table)) {
-        const {
-          data: { session },
-          error: sessionError,
-        } = await db.auth.getSession();
+        const { data: { session }, error: sessionError } = await db.auth.getSession();
         if (sessionError) throw new Error(sessionError.message);
         if (!session) throw new Error("You must be logged in.");
         enrichedPayload = { ...enrichedPayload, user_id: session.user.id };
@@ -406,19 +686,15 @@ function ContentStudio() {
         .insert([enrichedPayload])
         .select()
         .single();
-
       if (error) throw new Error(error.message);
       return data;
     },
-
     onSuccess: async () => {
-      // Close the form and refresh the list
       setEditing(null);
       await qc.invalidateQueries({ queryKey: ["content-studio", table] });
       setToast({ type: "success", message: "Record saved successfully." });
       setTimeout(() => setToast(null), 3500);
     },
-
     onError: (error: Error) => {
       setToast({ type: "error", message: error.message });
       setTimeout(() => setToast(null), 5000);
@@ -464,7 +740,6 @@ function ContentStudio() {
     ? Object.keys(editing).filter((f) => !HIDDEN_FIELDS.has(f))
     : [];
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
       {/* ── Page header ── */}
@@ -494,8 +769,7 @@ function ContentStudio() {
         </button>
       </div>
 
-      {/* ── Table selector ── */}
-      {/* Desktop: scrollable pill row */}
+      {/* ── Table selector — desktop ── */}
       <div className="hidden gap-2 overflow-x-auto pb-1 lg:flex">
         {contentTables.map((item) => (
           <button
@@ -520,7 +794,7 @@ function ContentStudio() {
         ))}
       </div>
 
-      {/* Mobile: dropdown */}
+      {/* ── Table selector — mobile dropdown ── */}
       <div className="relative lg:hidden">
         <button
           onClick={() => setTableMenuOpen((v) => !v)}
@@ -534,7 +808,6 @@ function ContentStudio() {
             className={`h-4 w-4 text-muted-foreground transition-transform ${tableMenuOpen ? "rotate-180" : ""}`}
           />
         </button>
-
         {tableMenuOpen && (
           <div className="absolute inset-x-0 top-full z-30 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-border/60 bg-surface/95 shadow-xl backdrop-blur">
             {contentTables.map((item) => (
@@ -577,11 +850,13 @@ function ContentStudio() {
         )}
       </div>
 
-      {/* ── Table ── */}
+      {/* ── Table body ── */}
       {query.isLoading ? (
         <div className="flex flex-col items-center justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          <p className="mt-3 font-mono text-xs text-muted-foreground">loading {config.label.toLowerCase()}…</p>
+          <p className="mt-3 font-mono text-xs text-muted-foreground">
+            loading {config.label.toLowerCase()}…
+          </p>
         </div>
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/50 py-16 text-center">
@@ -590,9 +865,7 @@ function ContentStudio() {
             {search ? "No matching records" : `No ${config.label.toLowerCase()} yet`}
           </p>
           <p className="mt-1 text-xs text-muted-foreground/60">
-            {search
-              ? "Try a different search term"
-              : `Click "New Record" to add the first entry`}
+            {search ? "Try a different search term" : `Click "New Record" to add the first entry`}
           </p>
         </div>
       ) : (
@@ -618,10 +891,7 @@ function ContentStudio() {
               </thead>
               <tbody className="divide-y divide-border/40">
                 {rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="group transition-colors hover:bg-white/3"
-                  >
+                  <tr key={row.id} className="group transition-colors hover:bg-white/3">
                     <td className="px-5 py-3.5">
                       <p className="font-medium text-foreground/90">{rowTitle(row)}</p>
                       {rowSubtitle(row) && (
@@ -638,8 +908,7 @@ function ContentStudio() {
                           }`}
                       >
                         <span
-                          className={`h-1.5 w-1.5 rounded-full ${row.is_active === false ? "bg-rose-400" : "bg-emerald-400"
-                            }`}
+                          className={`h-1.5 w-1.5 rounded-full ${row.is_active === false ? "bg-rose-400" : "bg-emerald-400"}`}
                         />
                         {row.is_active === false ? "Inactive" : "Active"}
                       </span>
@@ -779,18 +1048,15 @@ function ContentStudio() {
             <div className="flex-1 overflow-y-auto">
               <div className="grid gap-4 p-5 sm:grid-cols-2">
                 {fields.map((field) => {
-                  const isWide =
-                    isLongTextField(field) ||
-                    Array.isArray(editing[field]) ||
-                    (editing[field] !== null && typeof editing[field] === "object");
+                  const wide = isWideField(field, editing[field]);
 
                   return (
-                    <label
-                      key={field}
-                      className={isWide ? "sm:col-span-2" : ""}
-                    >
-                      <span className="mb-1.5 block font-mono text-[11px] uppercase tracking-widest text-muted-foreground/60">
+                    <label key={field} className={wide ? "sm:col-span-2" : ""}>
+                      <span className="mb-1.5 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/60">
                         {field.replace(/_/g, " ")}
+                        {isGalleryField(field) && (
+                          <ImagePlus className="h-3 w-3 text-primary/60" />
+                        )}
                       </span>
                       <EditableField
                         field={field}
@@ -808,7 +1074,7 @@ function ContentStudio() {
             {/* Modal footer */}
             <div className="flex shrink-0 items-center justify-between border-t border-border/60 px-5 py-4">
               <p className="hidden text-xs text-muted-foreground/50 sm:block">
-                Arrays / objects → JSON syntax &nbsp;·&nbsp; Empty fields use database defaults
+                Arrays / objects → JSON · Empty fields use database defaults
               </p>
               <div className="flex gap-3">
                 <button
