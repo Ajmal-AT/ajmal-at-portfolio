@@ -25,7 +25,7 @@ export function Navbar() {
             <img src={logoUrl} alt="Ajmal AT" width={36} height={36} className="h-9 w-9 object-contain" />
           </span>
           <span className="font-display text-base font-semibold tracking-tight">
-            Ajmal <span className="gradient-brand">AT</span>
+            AJMAL <span className="gradient-brand">AT</span>
           </span>
         </Link>
 

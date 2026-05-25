@@ -54,21 +54,50 @@ function Home() {
                 {profile.availability_status}
               </div>
               <h1 className="mt-6 font-display text-5xl font-semibold leading-[1.05] tracking-tight md:text-7xl">{hero.heading}</h1>
+
               <p className="mt-3 font-mono text-sm text-muted-foreground md:text-base">
                 <span className="text-primary">{">"}</span>{" "}
                 {(stats.roles ?? []).map((role: string, index: number) => (
-                  <span key={role}>{role}{index < stats.roles.length - 1 && <span className="mx-2 text-muted-foreground/60">/</span>}</span>
+                  <span key={role}>{role}{index < stats.roles.length - 1 && <span className="mx-2 text-muted-foreground/60">·</span>}</span>
                 ))}
               </p>
+
               <p className="mt-6 max-w-xl text-base text-muted-foreground md:text-lg">{profile.bio ?? hero.body}</p>
+
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link to={(hero.cta_url ?? "/contact") as any} className="inline-flex items-center gap-2 rounded-lg bg-gradient-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-glow">{hero.cta_label}<ArrowRight className="h-4 w-4" /></Link>
                 <Link to={(hero.secondary_cta_url ?? "/projects") as any} className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-5 py-3 text-sm font-medium"> {hero.secondary_cta_label}</Link>
                 <Link to="/resume" className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-5 py-3 text-sm font-medium"><Download className="h-4 w-4" /> Resume</Link>
+                <Link to="/contact" className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-5 py-3 text-sm font-medium">Book Consultation</Link>
               </div>
+
               <div className="mt-8 flex items-center gap-4 text-xs text-muted-foreground">
-                {profile.github_url && <a href={profile.github_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 hover:text-foreground"><Github className="h-4 w-4" /> GitHub</a>}
-                {profile.linkedin_url && <a href={profile.linkedin_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 hover:text-foreground"><Linkedin className="h-4 w-4" /> LinkedIn</a>}
+                {profile.github_url && (
+                  <a
+                    href={profile.github_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 hover:text-foreground transition-colors"
+                  >
+                    <Github className="h-4 w-4" />
+                    {profile.github_url.split("github.com/")[1]}
+                  </a>
+                )}
+                {profile.linkedin_url && (
+                  <a
+                    href={profile.linkedin_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 hover:text-foreground transition-colors"
+                  >
+                    <Linkedin className="h-4 w-4" />
+                    {profile.linkedin_url
+                      .replace("https://", "")
+                      .replace("www.", "")
+                      .split("linkedin.com/in/")[1]
+                      ?.replace("/", "")}
+                  </a>
+                )}
               </div>
             </div>
 
