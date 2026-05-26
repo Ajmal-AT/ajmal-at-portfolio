@@ -292,7 +292,7 @@ function Home() {
         ) : (
           <motion.div
             style={{ opacity: heroOpacity, y: heroY }}
-            className="relative mx-auto max-w-7xl px-6 pb-24 pt-8 md:pt-12 lg:pt-16"
+            className="relative mx-auto max-w-7xl px-6 pb-16 pt-10 md:pt-10 lg:pt-16"
           >
             <div className="grid items-center gap-16 lg:grid-cols-12">
               {/* ── Left ── */}
