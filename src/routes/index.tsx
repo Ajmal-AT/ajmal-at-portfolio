@@ -1,3 +1,4 @@
+// index.tsx
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { motion, useScroll, useTransform } from "framer-motion";
@@ -26,6 +27,7 @@ import { Counter } from "@/components/Counter";
 import { Reveal } from "@/components/Reveal";
 import {
   firstActive,
+  fetchSections,
   getIcon,
   listContent,
   sectionByKey,
@@ -44,13 +46,13 @@ function HomeSkeleton() {
     <div className="mx-auto max-w-7xl px-6 py-32 space-y-8 animate-pulse">
       <div className="h-5 w-40 rounded-full bg-primary/10" />
       <div className="space-y-3">
-        <div className="h-20 w-4/5 rounded-2xl bg-primary/8" />
-        <div className="h-20 w-3/5 rounded-2xl bg-primary/6" />
+        <div className="h-20 w-4/5 rounded-2xl bg-primary/[8%]" />
+        <div className="h-20 w-3/5 rounded-2xl bg-primary/[6%]" />
       </div>
-      <div className="h-5 w-2/3 rounded-lg bg-primary/6" />
+      <div className="h-5 w-2/3 rounded-lg bg-primary/[6%]" />
       <div className="flex gap-3 pt-4">
         <div className="h-12 w-40 rounded-xl bg-primary/10" />
-        <div className="h-12 w-36 rounded-xl bg-primary/6" />
+        <div className="h-12 w-36 rounded-xl bg-primary/[6%]" />
       </div>
     </div>
   );
@@ -61,8 +63,8 @@ function GridBackground() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       {/* Primary glow */}
-      <div className="absolute -left-60 -top-20 h-[700px] w-[700px] rounded-full bg-primary/8 blur-[160px]" />
-      <div className="absolute -right-40 top-20 h-[500px] w-[500px] rounded-full bg-accent/6 blur-[140px]" />
+      <div className="absolute -left-60 -top-20 h-[700px] w-[700px] rounded-full bg-primary/[8%] blur-[160px]" />
+      <div className="absolute -right-40 top-20 h-[500px] w-[500px] rounded-full bg-accent/[6%] blur-[140px]" />
       <div className="absolute bottom-0 left-1/2 h-[400px] w-[700px] -translate-x-1/2 rounded-full bg-primary/5 blur-[120px]" />
       {/* Grid */}
       <div className="absolute inset-0 grid-bg opacity-40" />
@@ -114,7 +116,7 @@ function StatCard({
     <Reveal delay={delay}>
       <div className="group relative overflow-hidden rounded-2xl border border-border/50 bg-surface/40 p-6 backdrop-blur transition-all duration-300 hover:border-primary/30 hover:bg-surface/60 hover:-translate-y-1">
         {/* Corner glow */}
-        <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-primary/8 blur-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+        <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-primary/[8%] blur-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
         <div className="relative">
           <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
             <Icon className="h-4.5 w-4.5" />
@@ -149,13 +151,13 @@ function ServiceCard({
       >
         {/* Animated background glow */}
         <div className="pointer-events-none absolute inset-0 opacity-0 transition-all duration-700 group-hover:opacity-100">
-          <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/12 blur-3xl" />
-          <div className="absolute -bottom-8 -left-8 h-36 w-36 rounded-full bg-accent/8 blur-3xl" />
+          <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/[12%] blur-3xl" />
+          <div className="absolute -bottom-8 -left-8 h-36 w-36 rounded-full bg-accent/[8%] blur-3xl" />
         </div>
 
         {/* Shine sweep */}
         <div className="absolute inset-0 overflow-hidden rounded-3xl">
-          <div className="absolute -left-full top-0 h-full w-1/3 rotate-12 bg-gradient-to-r from-transparent via-white/4 to-transparent transition-all duration-1000 group-hover:left-[160%]" />
+          <div className="absolute -left-full top-0 h-full w-1/3 rotate-12 bg-gradient-to-r from-transparent via-white/[4%] to-transparent transition-all duration-1000 group-hover:left-[160%]" />
         </div>
 
         {/* Top accent line */}
@@ -241,7 +243,7 @@ function Home() {
   const heroOpacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
   const heroY = useTransform(scrollYProgress, [0, 0.6], [0, 60]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["home-content"],
     queryFn: async () => {
       const [profile, stats, terminal, featuredServices, stack, sections] =
@@ -251,13 +253,16 @@ function Home() {
           firstActive("terminal_showcase"),
           listContent("featured_services", { activeOnly: true }),
           listContent("technology_stack", { activeOnly: true, limit: 24 }),
-          import("@/lib/content").then((m) => m.fetchSections("home")),
+          fetchSections("home"),
         ]);
       return { profile, stats, terminal, featuredServices, stack, sections };
     },
+    staleTime: 1000 * 60 * 5,
+    retry: 1,
   });
 
   if (isLoading) return <HomeSkeleton />;
+  if (error) return <pre style={{ color: "red", padding: 32 }}>{String(error)}</pre>;
 
   const profile = data?.profile ?? {};
   const stats = data?.stats ?? {};
@@ -431,7 +436,7 @@ function Home() {
                   </a>
                 )}
                 {/* Star badge */}
-                <span className="ml-auto hidden items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/8 px-3 py-1 font-mono text-[10px] text-amber-400 md:inline-flex">
+                <span className="ml-auto hidden items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/[8%] px-3 py-1 font-mono text-[10px] text-amber-400 md:inline-flex">
                   <Star className="h-3 w-3 fill-current" />
                   Top-rated freelancer
                 </span>
@@ -448,7 +453,7 @@ function Home() {
               {/* Terminal card */}
               <div className="relative">
                 {/* Glow behind terminal */}
-                <div className="absolute -inset-4 rounded-3xl bg-primary/8 blur-2xl" />
+                <div className="absolute -inset-4 rounded-3xl bg-primary/[8%] blur-2xl" />
 
                 <div className="glass-strong relative rounded-2xl shadow-card">
                   {/* Title bar */}
@@ -657,7 +662,7 @@ function Home() {
             <div className="absolute inset-0 bg-hero opacity-70" />
             <div className="absolute inset-0 grid-bg opacity-25" />
             {/* Orbs */}
-            <div className="pointer-events-none absolute -right-20 -top-20 h-80 w-80 rounded-full bg-primary/12 blur-3xl" />
+            <div className="pointer-events-none absolute -right-20 -top-20 h-80 w-80 rounded-full bg-primary/[12%] blur-3xl" />
             <div className="pointer-events-none absolute -bottom-20 left-10 h-60 w-60 rounded-full bg-accent/10 blur-3xl" />
             {/* Top shimmer */}
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
