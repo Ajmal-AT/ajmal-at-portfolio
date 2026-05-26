@@ -184,7 +184,7 @@ function Projects() {
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-4 py-1.5">
             <Sparkles className="h-3 w-3 text-primary" />
             <span className="font-mono text-xs uppercase tracking-[0.25em] text-primary">
-              {hero.eyebrow ?? "Projects"}
+              {(hero.eyebrow ?? "Projects").replace(/^\/\/\s*/, "")}
             </span>
           </div>
 
