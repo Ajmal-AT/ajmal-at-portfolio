@@ -1,3 +1,4 @@
+// services.tsx
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -175,17 +176,20 @@ function Services() {
     queryFn: async () => {
       const [sections, software, resumes, portfolios] = await Promise.all([
         fetchSections("services"),
-        listContent("software_services", { activeOnly: true }),
-        listContent("resume_services", { activeOnly: true }),
-        listContent("portfolio_services", { activeOnly: true }),
+        listContent<AnyRecord>("software_services", { activeOnly: true }),
+        listContent<AnyRecord>("resume_services", { activeOnly: true }),
+        listContent<AnyRecord>("portfolio_services", { activeOnly: true }),
       ]);
+
+      const combined: AnyRecord[] = [
+        ...software.map((s): AnyRecord => ({ ...s, kind: "Software" })),
+        ...portfolios.map((s): AnyRecord => ({ ...s, kind: "Portfolio" })),
+        ...resumes.map((s): AnyRecord => ({ ...s, kind: "Resume" })),
+      ].sort((a: AnyRecord, b: AnyRecord) => Number(a.starting_price ?? 0) - Number(b.starting_price ?? 0));
+
       return {
         sections,
-        services: [
-          ...software.map((s) => ({ ...s, kind: "Software" })),
-          ...portfolios.map((s) => ({ ...s, kind: "Portfolio" })),
-          ...resumes.map((s) => ({ ...s, kind: "Resume" })),
-        ],
+        services: combined,
       };
     },
   });
