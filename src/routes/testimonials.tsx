@@ -1043,7 +1043,7 @@ function Testimonials() {
           {/* Response time pills */}
           <div className="mt-6 flex flex-wrap gap-3">
             {[
-              { Icon: Clock, text: "Reviews since 2022" },
+              { Icon: Clock, text: "Reviews since 2024" },
               { Icon: Zap, text: "100% project satisfaction" },
               { Icon: CheckCircle2, text: "Moderated & verified" },
             ].map(({ Icon, text }) => (

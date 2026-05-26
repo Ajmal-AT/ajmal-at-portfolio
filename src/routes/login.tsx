@@ -10,8 +10,8 @@ export const Route = createFileRoute("/login")({
       { name: "robots", content: "noindex,nofollow" },
     ],
   }),
-  validateSearch: (s: Record<string, unknown>) => ({
-    redirect: typeof s.redirect === "string" ? s.redirect : "/admin",
+  validateSearch: (s: Record<string, unknown>): { redirect?: string } => ({
+    redirect: typeof s.redirect === "string" ? s.redirect : undefined,
   }),
   component: LoginPage,
 });
@@ -31,7 +31,7 @@ function LoginPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: redirect });
+      if (data.session) navigate({ to: (redirect || "/admin") as any });
     });
   }, [navigate, redirect]);
 
@@ -47,7 +47,7 @@ function LoginPage() {
           password,
         });
         if (error) throw error;
-        navigate({ to: redirect });
+        navigate({ to: (redirect || "/admin") as any });
       } else {
         const { error } = await supabase.auth.signUp({
           email,
