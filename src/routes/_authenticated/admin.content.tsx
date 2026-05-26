@@ -748,7 +748,7 @@ function ContentStudio() {
           <div className="flex items-center gap-2">
             <Database className="h-4 w-4 text-primary" />
             <p className="font-mono text-xs uppercase tracking-widest text-primary">
-              // content studio
+              content studio
             </p>
           </div>
           <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">
