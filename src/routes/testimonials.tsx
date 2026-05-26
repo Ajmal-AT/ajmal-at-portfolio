@@ -1012,7 +1012,7 @@ function Testimonials() {
       {/* ════════════════════════════════════════════════════════════════
           HERO
       ════════════════════════════════════════════════════════════════ */}
-      <section className="relative mx-auto max-w-7xl px-6 pt-28 pb-16">
+      <section className="relative mx-auto max-w-7xl px-6 pt-10 pb-16">
         <Reveal>
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-4 py-1.5">
             <Sparkles className="h-3 w-3 text-primary" />
@@ -1043,7 +1043,7 @@ function Testimonials() {
           {/* Response time pills */}
           <div className="mt-6 flex flex-wrap gap-3">
             {[
-              { Icon: Clock, text: "Reviews since 2022" },
+              { Icon: Clock, text: "Reviews since 2024" },
               { Icon: Zap, text: "100% project satisfaction" },
               { Icon: CheckCircle2, text: "Moderated & verified" },
             ].map(({ Icon, text }) => (

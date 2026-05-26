@@ -249,7 +249,7 @@ function Contact() {
   return (
     <div className="overflow-x-hidden">
       {/* ── Hero ──────────────────────────────────────────────────────── */}
-      <section className="relative mx-auto max-w-7xl px-6 pt-28 pb-16">
+      <section className="relative mx-auto max-w-7xl px-6 pt-10 pb-16">
         <div className="max-w-3xl animate-fade-up">
           {/* Eyebrow */}
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-4 py-1.5">

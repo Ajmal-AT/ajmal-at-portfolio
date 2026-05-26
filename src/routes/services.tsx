@@ -25,6 +25,27 @@ export const Route = createFileRoute("/services")({
   component: Services,
 });
 
+// ─── USD → INR conversion ─────────────────────────────────────────────────────
+const USD_TO_INR = Number(import.meta.env.VITE_USD_TO_INR_RATE || 100.41);
+
+export function formatUSD(amount: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+function formatINR(amount: number): string {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Math.round(amount * USD_TO_INR));
+}
+
 // ─── Loading skeleton ──────────────────────────────────────────────────────────
 function ServicesSkeleton() {
   return (
@@ -65,6 +86,31 @@ const kindConfig: Record<
   },
 };
 
+// ─── Price display ────────────────────────────────────────────────────────────
+function PriceDisplay({
+  usd,
+  pricingType,
+}: {
+  usd: number;
+  pricingType?: string;
+}) {
+  return (
+    <div className="mt-4 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      {/* Primary: USD */}
+      <span className="font-display text-3xl font-semibold gradient-text">
+        {formatUSD(usd)}
+      </span>
+      <span className="text-xs text-muted-foreground">
+        {pricingType ?? "starting"}
+      </span>
+      {/* Secondary: INR conversion */}
+      <span className="w-full font-mono text-[11px] text-muted-foreground/50">
+        ≈ {formatINR(usd)} INR
+      </span>
+    </div>
+  );
+}
+
 // ─── Tier card ────────────────────────────────────────────────────────────────
 function Tier({
   service,
@@ -79,6 +125,7 @@ function Tier({
   const features: string[] = service.features ?? service.technologies ?? [];
   const cfg = kindConfig[kind] ?? kindConfig.Software;
   const KindIcon = cfg.Icon;
+  const usdPrice = Number(service.starting_price ?? 0);
 
   return (
     <Reveal delay={index * 0.07}>
@@ -114,15 +161,8 @@ function Tier({
             {service.title}
           </h3>
 
-          {/* Pricing */}
-          <div className="mt-4 flex items-baseline gap-1.5">
-            <span className="font-display text-3xl font-semibold gradient-text">
-              ₹{Number(service.starting_price ?? 0).toLocaleString("en-IN")}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {service.pricing_type ?? "starting"}
-            </span>
-          </div>
+          {/* Pricing — USD primary, INR secondary */}
+          <PriceDisplay usd={usdPrice} pricingType={service.pricing_type} />
 
           {/* Description */}
           <p className="mt-4 text-sm leading-7 text-muted-foreground">
@@ -185,12 +225,12 @@ function Services() {
         ...software.map((s): AnyRecord => ({ ...s, kind: "Software" })),
         ...portfolios.map((s): AnyRecord => ({ ...s, kind: "Portfolio" })),
         ...resumes.map((s): AnyRecord => ({ ...s, kind: "Resume" })),
-      ].sort((a: AnyRecord, b: AnyRecord) => Number(a.starting_price ?? 0) - Number(b.starting_price ?? 0));
+      ].sort(
+        (a: AnyRecord, b: AnyRecord) =>
+          Number(a.starting_price ?? 0) - Number(b.starting_price ?? 0)
+      );
 
-      return {
-        sections,
-        services: combined,
-      };
+      return { sections, services: combined };
     },
   });
 
@@ -210,7 +250,7 @@ function Services() {
   return (
     <div className="overflow-x-hidden">
       {/* ── Hero ──────────────────────────────────────────────────────── */}
-      <section className="relative mx-auto max-w-7xl px-6 pt-28 pb-16">
+      <section className="relative mx-auto max-w-7xl px-6 pt-10 pb-16">
         <Reveal>
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-4 py-1.5">
             <Sparkles className="h-3 w-3 text-primary" />
@@ -237,6 +277,11 @@ function Services() {
 
           <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
             {hero.body}
+          </p>
+
+          {/* Currency note */}
+          <p className="mt-3 font-mono text-xs text-muted-foreground/40">
+            All prices in USD · INR equivalent shown at ≈ ₹{USD_TO_INR}/$ for reference
           </p>
         </Reveal>
       </section>
