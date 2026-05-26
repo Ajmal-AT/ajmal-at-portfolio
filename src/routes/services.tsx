@@ -1,3 +1,4 @@
+// services.tsx
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -175,17 +176,20 @@ function Services() {
     queryFn: async () => {
       const [sections, software, resumes, portfolios] = await Promise.all([
         fetchSections("services"),
-        listContent("software_services", { activeOnly: true }),
-        listContent("resume_services", { activeOnly: true }),
-        listContent("portfolio_services", { activeOnly: true }),
+        listContent<AnyRecord>("software_services", { activeOnly: true }),
+        listContent<AnyRecord>("resume_services", { activeOnly: true }),
+        listContent<AnyRecord>("portfolio_services", { activeOnly: true }),
       ]);
+
+      const combined: AnyRecord[] = [
+        ...software.map((s): AnyRecord => ({ ...s, kind: "Software" })),
+        ...portfolios.map((s): AnyRecord => ({ ...s, kind: "Portfolio" })),
+        ...resumes.map((s): AnyRecord => ({ ...s, kind: "Resume" })),
+      ].sort((a: AnyRecord, b: AnyRecord) => Number(a.starting_price ?? 0) - Number(b.starting_price ?? 0));
+
       return {
         sections,
-        services: [
-          ...software.map((s) => ({ ...s, kind: "Software" })),
-          ...portfolios.map((s) => ({ ...s, kind: "Portfolio" })),
-          ...resumes.map((s) => ({ ...s, kind: "Resume" })),
-        ],
+        services: combined,
       };
     },
   });
@@ -211,7 +215,7 @@ function Services() {
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-4 py-1.5">
             <Sparkles className="h-3 w-3 text-primary" />
             <span className="font-mono text-xs uppercase tracking-[0.25em] text-primary">
-              {hero.eyebrow ?? "Services"}
+              {(hero.eyebrow ?? "Services").replace(/^\/\/\s*/, "")}
             </span>
           </div>
 
