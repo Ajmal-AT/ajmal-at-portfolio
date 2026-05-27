@@ -17,7 +17,6 @@ import {
   ChevronDown,
   Layers,
   ImagePlus,
-  GripVertical,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,11 +36,7 @@ const HIDDEN_FIELDS = new Set([
   "id",
 ]);
 
-// Tables that need user_id injected on INSERT
-const TABLES_WITH_USER_ID = new Set(["media_assets"]);
-
 // ─── Empty record templates ───────────────────────────────────────────────────
-
 function emptyRecord(table: ContentTable): AnyRecord {
   const common = { is_active: true, display_order: 0 };
   const templates: Record<string, AnyRecord> = {
@@ -130,6 +125,7 @@ function emptyRecord(table: ContentTable): AnyRecord {
       client_name: "",
       client_feedback: "",
       project_url: "",
+      linkedin_url: "",
       github_url: "",
       thumbnail: "",
       gallery_images: [],
@@ -230,6 +226,7 @@ function emptyRecord(table: ContentTable): AnyRecord {
       metadata: {},
       ...common,
     },
+    // media_assets: no user_id in actual schema — removed TABLES_WITH_USER_ID injection
     media_assets: {
       provider: "supabase",
       asset_type: "",
@@ -245,26 +242,27 @@ function emptyRecord(table: ContentTable): AnyRecord {
 }
 
 // ─── Payload normalisation ────────────────────────────────────────────────────
-
+// Only strip true null/undefined; keep empty strings and 0 values.
+// Arrays and objects are always included (even if empty).
 function normalizeRecord(record: AnyRecord): AnyRecord {
   const payload: AnyRecord = {};
   for (const [key, value] of Object.entries(record)) {
     if (HIDDEN_FIELDS.has(key)) continue;
-    // Keep booleans and 0 values; skip only true empties
-    if (value === "" || value === null || value === undefined) continue;
+    if (value === null || value === undefined) continue;
+    // Always keep arrays (even empty), objects, booleans, numbers, strings
     payload[key] = value;
   }
   return payload;
 }
 
 // ─── Field type helpers ───────────────────────────────────────────────────────
-
 function isBooleanField(field: string, value: unknown): boolean {
   return (
     typeof value === "boolean" ||
     field.startsWith("is_") ||
     field === "featured" ||
-    field === "vip_project"
+    field === "vip_project" ||
+    field === "is_visible"
   );
 }
 
@@ -284,7 +282,8 @@ function isMediaField(field: string): boolean {
   return (
     field.includes("image") ||
     field.includes("thumbnail") ||
-    field.includes("video_url") ||
+    field === "video_testimonial" ||
+    field === "demo_video" ||
     field.includes("public_url") ||
     field.includes("resume_url") ||
     field.includes("logo_url") ||
@@ -299,15 +298,24 @@ function isGalleryField(field: string): boolean {
   return field === "gallery_images";
 }
 
+// Arrays (non-gallery) and plain objects → JSON textarea
 function isJsonField(field: string, value: unknown): boolean {
+  if (isGalleryField(field)) return false;
   return (
-    (Array.isArray(value) && !isGalleryField(field)) ||
+    Array.isArray(value) ||
     (value !== null && typeof value === "object" && !Array.isArray(value))
   );
 }
 
-// ─── Gallery image uploader ───────────────────────────────────────────────────
+function isWideField(field: string, value: unknown): boolean {
+  return (
+    isLongTextField(field) ||
+    isGalleryField(field) ||
+    isJsonField(field, value)
+  );
+}
 
+// ─── Gallery image uploader ───────────────────────────────────────────────────
 function GalleryField({
   value,
   onChange,
@@ -316,7 +324,6 @@ function GalleryField({
   onChange: (next: string[]) => void;
 }) {
   const [uploading, setUploading] = useState(false);
-
   const images: string[] = Array.isArray(value) ? value : [];
 
   const handleUpload = async (files: FileList | null) => {
@@ -334,9 +341,7 @@ function GalleryField({
     }
   };
 
-  const removeImage = (idx: number) => {
-    onChange(images.filter((_, i) => i !== idx));
-  };
+  const removeImage = (idx: number) => onChange(images.filter((_, i) => i !== idx));
 
   const moveImage = (idx: number, delta: number) => {
     const next = [...images];
@@ -348,7 +353,6 @@ function GalleryField({
 
   return (
     <div className="space-y-3">
-      {/* Existing images grid */}
       {images.length > 0 && (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {images.map((url, idx) => (
@@ -360,50 +364,30 @@ function GalleryField({
                 src={url}
                 alt={`Gallery ${idx + 1}`}
                 className="h-full w-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
               />
-              {/* Overlay controls */}
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
                 <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => moveImage(idx, -1)}
-                    disabled={idx === 0}
-                    className="rounded-md bg-white/10 p-1.5 text-white hover:bg-white/20 disabled:opacity-30"
-                    title="Move left"
-                  >
+                  <button type="button" onClick={() => moveImage(idx, -1)} disabled={idx === 0}
+                    className="rounded-md bg-white/10 p-1.5 text-white hover:bg-white/20 disabled:opacity-30">
                     <ArrowUp className="h-3 w-3 -rotate-90" />
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => moveImage(idx, 1)}
-                    disabled={idx === images.length - 1}
-                    className="rounded-md bg-white/10 p-1.5 text-white hover:bg-white/20 disabled:opacity-30"
-                    title="Move right"
-                  >
+                  <button type="button" onClick={() => moveImage(idx, 1)} disabled={idx === images.length - 1}
+                    className="rounded-md bg-white/10 p-1.5 text-white hover:bg-white/20 disabled:opacity-30">
                     <ArrowDown className="h-3 w-3 -rotate-90" />
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => removeImage(idx)}
-                    className="rounded-md bg-destructive/80 p-1.5 text-white hover:bg-destructive"
-                    title="Remove"
-                  >
+                  <button type="button" onClick={() => removeImage(idx)}
+                    className="rounded-md bg-destructive/80 p-1.5 text-white hover:bg-destructive">
                     <X className="h-3 w-3" />
                   </button>
                 </div>
-                <span className="font-mono text-[10px] text-white/60">
-                  {idx + 1} / {images.length}
-                </span>
+                <span className="font-mono text-[10px] text-white/60">{idx + 1} / {images.length}</span>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* URL input row */}
       <div className="flex gap-2">
         <input
           type="text"
@@ -420,32 +404,21 @@ function GalleryField({
             }
           }}
         />
-        {/* Upload from device */}
         <label className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border/60 bg-surface/60 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary">
-          {uploading ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <UploadCloud className="h-3.5 w-3.5" />
-          )}
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={(e) => handleUpload(e.target.files)}
-          />
+          {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UploadCloud className="h-3.5 w-3.5" />}
+          <input type="file" accept="image/*" multiple className="hidden"
+            onChange={(e) => handleUpload(e.target.files)} />
         </label>
       </div>
 
       <p className="font-mono text-[10px] text-muted-foreground/50">
-        {images.length} image{images.length !== 1 ? "s" : ""} · Upload files or paste URLs · Hover image to reorder/remove
+        {images.length} image{images.length !== 1 ? "s" : ""} · Upload files or paste URLs
       </p>
     </div>
   );
 }
 
 // ─── Generic editable field ───────────────────────────────────────────────────
-
 function EditableField({
   field,
   value,
@@ -460,29 +433,23 @@ function EditableField({
   const baseInput =
     "w-full rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-sm text-foreground placeholder-muted-foreground/40 outline-none transition focus:border-primary/50 focus:ring-1 focus:ring-primary/20";
 
-  // Gallery images — special multi-upload UI
   if (isGalleryField(field)) {
     return (
       <GalleryField
         value={Array.isArray(value) ? (value as string[]) : []}
-        onChange={(next) => onChange(next)}
+        onChange={onChange}
       />
     );
   }
 
-  // Boolean toggle
   if (isBooleanField(field, value)) {
     return (
       <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border/60 bg-background/40 px-3 py-2.5">
         <div
           onClick={() => onChange(!value)}
-          className={`relative h-5 w-9 rounded-full transition-colors ${value ? "bg-primary" : "bg-white/10"
-            }`}
+          className={`relative h-5 w-9 rounded-full transition-colors ${value ? "bg-primary" : "bg-white/10"}`}
         >
-          <div
-            className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${value ? "translate-x-4" : "translate-x-0.5"
-              }`}
-          />
+          <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${value ? "translate-x-4" : "translate-x-0.5"}`} />
         </div>
         <span className="text-sm text-muted-foreground">{value ? "Enabled" : "Disabled"}</span>
       </label>
@@ -491,24 +458,24 @@ function EditableField({
 
   // Arrays and objects → JSON textarea
   if (isJsonField(field, value)) {
+    const jsonStr = (() => {
+      try { return JSON.stringify(value ?? (Array.isArray(value) ? [] : {}), null, 2); }
+      catch { return "[]"; }
+    })();
     return (
       <textarea
-        value={JSON.stringify(value ?? (Array.isArray(value) ? [] : {}), null, 2)}
+        defaultValue={jsonStr}
         onChange={(e) => {
-          try {
-            onChange(JSON.parse(e.target.value));
-          } catch {
-            // keep editing
-          }
+          try { onChange(JSON.parse(e.target.value)); }
+          catch { /* keep editing until valid */ }
         }}
         rows={5}
         className={`${baseInput} font-mono text-xs`}
-        placeholder="JSON value"
+        placeholder={Array.isArray(value) ? '["item1", "item2"]' : '{"key": "value"}'}
       />
     );
   }
 
-  // Long text → textarea
   if (isLongTextField(field)) {
     return (
       <textarea
@@ -521,39 +488,43 @@ function EditableField({
     );
   }
 
+  // Number fields
+  if (typeof value === "number") {
+    return (
+      <input
+        value={value}
+        type="number"
+        onChange={(e) => onChange(Number(e.target.value))}
+        className={baseInput}
+        placeholder={field.replace(/_/g, " ")}
+      />
+    );
+  }
+
   // Media/URL field with optional upload button
   return (
     <div className="flex gap-2">
       <input
         value={String(value ?? "")}
-        type={typeof value === "number" ? "number" : "text"}
-        onChange={(e) =>
-          onChange(typeof value === "number" ? Number(e.target.value) : e.target.value)
-        }
+        type="text"
+        onChange={(e) => onChange(e.target.value)}
         className={`${baseInput} min-w-0 flex-1`}
         placeholder={field.replace(/_/g, " ")}
       />
       {isMediaField(field) && (
         <label className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border/60 bg-surface/60 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary">
-          {uploading ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <UploadCloud className="h-3.5 w-3.5" />
-          )}
+          {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UploadCloud className="h-3.5 w-3.5" />}
           <input
             type="file"
+            accept={field.includes("video") || field === "demo_video" ? "video/*" : "image/*,application/pdf"}
             className="hidden"
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
               setUploading(true);
-              try {
-                onChange(await uploadMedia(file));
-              } catch (err) {
-                console.error("Upload failed:", err);
-              } finally {
-                setUploading(false);
-              }
+              try { onChange(await uploadMedia(file)); }
+              catch (err) { console.error("Upload failed:", err); }
+              finally { setUploading(false); }
             }}
           />
         </label>
@@ -563,7 +534,6 @@ function EditableField({
 }
 
 // ─── Row display helpers ──────────────────────────────────────────────────────
-
 function rowTitle(row: AnyRecord): string {
   return (
     row.title ??
@@ -573,7 +543,7 @@ function rowTitle(row: AnyRecord): string {
     row.client_name ??
     row.page_name ??
     row.action ??
-    String(row.id).slice(0, 8)
+    String(row.id ?? "").slice(0, 8)
   );
 }
 
@@ -592,28 +562,15 @@ function rowSubtitle(row: AnyRecord): string {
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
-
-function Toast({
-  type,
-  message,
-  onClose,
-}: {
-  type: "success" | "error";
-  message: string;
-  onClose: () => void;
-}) {
+function Toast({ type, message, onClose }: { type: "success" | "error"; message: string; onClose: () => void }) {
   return (
-    <div
-      className={`fixed bottom-6 right-6 z-[100] flex items-center gap-3 rounded-xl border px-4 py-3 shadow-xl backdrop-blur ${type === "success"
-        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-        : "border-destructive/30 bg-destructive/10 text-red-300"
-        }`}
-    >
-      {type === "success" ? (
-        <CheckCircle2 className="h-4 w-4 shrink-0" />
-      ) : (
-        <AlertCircle className="h-4 w-4 shrink-0" />
-      )}
+    <div className={`fixed bottom-6 right-6 z-[100] flex items-center gap-3 rounded-xl border px-4 py-3 shadow-xl backdrop-blur ${type === "success"
+      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+      : "border-destructive/30 bg-destructive/10 text-red-300"
+      }`}>
+      {type === "success"
+        ? <CheckCircle2 className="h-4 w-4 shrink-0" />
+        : <AlertCircle className="h-4 w-4 shrink-0" />}
       <p className="max-w-xs text-sm">{message}</p>
       <button onClick={onClose} className="ml-2 opacity-60 hover:opacity-100">
         <X className="h-3.5 w-3.5" />
@@ -622,19 +579,7 @@ function Toast({
   );
 }
 
-// ─── Field width helper ───────────────────────────────────────────────────────
-
-function isWideField(field: string, value: unknown): boolean {
-  return (
-    isLongTextField(field) ||
-    isGalleryField(field) ||
-    (Array.isArray(value) && !isGalleryField(field)) ||
-    (value !== null && typeof value === "object" && !Array.isArray(value))
-  );
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
-
 function ContentStudio() {
   const qc = useQueryClient();
   const [table, setTable] = useState<ContentTable>("profile_information");
@@ -673,17 +618,9 @@ function ContentStudio() {
         return data;
       }
 
-      let enrichedPayload = { ...payload };
-      if (TABLES_WITH_USER_ID.has(table)) {
-        const { data: { session }, error: sessionError } = await db.auth.getSession();
-        if (sessionError) throw new Error(sessionError.message);
-        if (!session) throw new Error("You must be logged in.");
-        enrichedPayload = { ...enrichedPayload, user_id: session.user.id };
-      }
-
       const { data, error } = await db
         .from(table)
-        .insert([enrichedPayload])
+        .insert([payload])
         .select()
         .single();
       if (error) throw new Error(error.message);
@@ -747,13 +684,9 @@ function ContentStudio() {
         <div>
           <div className="flex items-center gap-2">
             <Database className="h-4 w-4 text-primary" />
-            <p className="font-mono text-xs uppercase tracking-widest text-primary">
-              content studio
-            </p>
+            <p className="font-mono text-xs uppercase tracking-widest text-primary">content studio</p>
           </div>
-          <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">
-            Content Manager
-          </h1>
+          <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">Content Manager</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Manage all portfolio data, SEO, ordering and visibility.
           </p>
@@ -774,11 +707,7 @@ function ContentStudio() {
         {contentTables.map((item) => (
           <button
             key={item.table}
-            onClick={() => {
-              setTable(item.table);
-              setEditing(null);
-              setSearch("");
-            }}
+            onClick={() => { setTable(item.table); setEditing(null); setSearch(""); }}
             className={`shrink-0 rounded-lg border px-3.5 py-2 font-mono text-xs transition-all ${table === item.table
               ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
               : "border-border/50 bg-surface/40 text-muted-foreground hover:border-border hover:text-foreground"
@@ -804,21 +733,14 @@ function ContentStudio() {
             <Layers className="h-4 w-4 text-primary" />
             <span className="font-medium">{config.label}</span>
           </div>
-          <ChevronDown
-            className={`h-4 w-4 text-muted-foreground transition-transform ${tableMenuOpen ? "rotate-180" : ""}`}
-          />
+          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${tableMenuOpen ? "rotate-180" : ""}`} />
         </button>
         {tableMenuOpen && (
           <div className="absolute inset-x-0 top-full z-30 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-border/60 bg-surface/95 shadow-xl backdrop-blur">
             {contentTables.map((item) => (
               <button
                 key={item.table}
-                onClick={() => {
-                  setTable(item.table);
-                  setEditing(null);
-                  setSearch("");
-                  setTableMenuOpen(false);
-                }}
+                onClick={() => { setTable(item.table); setEditing(null); setSearch(""); setTableMenuOpen(false); }}
                 className={`flex w-full items-center justify-between px-4 py-2.5 text-sm transition-colors ${table === item.table
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
@@ -854,9 +776,16 @@ function ContentStudio() {
       {query.isLoading ? (
         <div className="flex flex-col items-center justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          <p className="mt-3 font-mono text-xs text-muted-foreground">
-            loading {config.label.toLowerCase()}…
-          </p>
+          <p className="mt-3 font-mono text-xs text-muted-foreground">loading {config.label.toLowerCase()}…</p>
+        </div>
+      ) : query.isError ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-destructive/30 bg-destructive/5 py-12 text-center">
+          <AlertCircle className="h-8 w-8 text-destructive/60" />
+          <p className="mt-3 text-sm font-medium text-muted-foreground">Failed to load data</p>
+          <p className="mt-1 text-xs text-muted-foreground/60">{String((query.error as Error)?.message ?? "Unknown error")}</p>
+          <button onClick={() => query.refetch()} className="mt-4 rounded-lg border border-border/60 px-4 py-2 text-xs text-muted-foreground hover:text-foreground">
+            Retry
+          </button>
         </div>
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/50 py-16 text-center">
@@ -875,18 +804,10 @@ function ContentStudio() {
             <table className="w-full min-w-[700px] text-left text-sm">
               <thead>
                 <tr className="border-b border-border/60 bg-surface/60">
-                  <th className="px-5 py-3.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/60">
-                    Record
-                  </th>
-                  <th className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/60">
-                    Status
-                  </th>
-                  <th className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/60">
-                    Order
-                  </th>
-                  <th className="px-4 py-3.5 text-right font-mono text-[11px] uppercase tracking-widest text-muted-foreground/60">
-                    Actions
-                  </th>
+                  <th className="px-5 py-3.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/60">Record</th>
+                  <th className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/60">Status</th>
+                  <th className="px-4 py-3.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/60">Order</th>
+                  <th className="px-4 py-3.5 text-right font-mono text-[11px] uppercase tracking-widest text-muted-foreground/60">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
@@ -895,40 +816,28 @@ function ContentStudio() {
                     <td className="px-5 py-3.5">
                       <p className="font-medium text-foreground/90">{rowTitle(row)}</p>
                       {rowSubtitle(row) && (
-                        <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground/60">
-                          {rowSubtitle(row)}
-                        </p>
+                        <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground/60">{rowSubtitle(row)}</p>
                       )}
                     </td>
                     <td className="px-4 py-3.5">
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11px] ${row.is_active === false
-                          ? "bg-rose-500/10 text-rose-400"
-                          : "bg-emerald-500/10 text-emerald-400"
-                          }`}
-                      >
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${row.is_active === false ? "bg-rose-400" : "bg-emerald-400"}`}
-                        />
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11px] ${row.is_active === false
+                        ? "bg-rose-500/10 text-rose-400"
+                        : "bg-emerald-500/10 text-emerald-400"
+                        }`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${row.is_active === false ? "bg-rose-400" : "bg-emerald-400"}`} />
                         {row.is_active === false ? "Inactive" : "Active"}
                       </span>
                     </td>
                     <td className="px-4 py-3.5">
                       {"display_order" in row ? (
                         <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => move(row, -1)}
-                            className="rounded-md border border-border/50 p-1 text-muted-foreground/60 transition-colors hover:border-border hover:text-foreground"
-                          >
+                          <button onClick={() => move(row, -1)}
+                            className="rounded-md border border-border/50 p-1 text-muted-foreground/60 transition-colors hover:border-border hover:text-foreground">
                             <ArrowUp className="h-3 w-3" />
                           </button>
-                          <span className="w-8 text-center font-mono text-xs text-muted-foreground">
-                            {row.display_order}
-                          </span>
-                          <button
-                            onClick={() => move(row, 1)}
-                            className="rounded-md border border-border/50 p-1 text-muted-foreground/60 transition-colors hover:border-border hover:text-foreground"
-                          >
+                          <span className="w-8 text-center font-mono text-xs text-muted-foreground">{row.display_order}</span>
+                          <button onClick={() => move(row, 1)}
+                            className="rounded-md border border-border/50 p-1 text-muted-foreground/60 transition-colors hover:border-border hover:text-foreground">
                             <ArrowDown className="h-3 w-3" />
                           </button>
                         </div>
@@ -938,26 +847,17 @@ function ContentStudio() {
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => setEditing(row)}
+                        <button onClick={() => setEditing({ ...row })}
                           className="rounded-lg border border-border/50 p-2 text-muted-foreground/60 transition-all hover:border-primary/40 hover:text-primary"
-                          title="Edit"
-                        >
+                          title="Edit">
                           <Edit3 className="h-3.5 w-3.5" />
                         </button>
                         <button
                           disabled={config.readonly}
-                          onClick={() => {
-                            if (confirm(`Delete "${rowTitle(row)}"?`)) remove.mutate(row.id);
-                          }}
+                          onClick={() => { if (confirm(`Delete "${rowTitle(row)}"?`)) remove.mutate(row.id); }}
                           className="rounded-lg border border-border/50 p-2 text-muted-foreground/60 transition-all hover:border-destructive/40 hover:text-destructive disabled:opacity-30"
-                          title="Delete"
-                        >
-                          {remove.isPending ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-3.5 w-3.5" />
-                          )}
+                          title="Delete">
+                          {remove.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                         </button>
                       </div>
                     </td>
@@ -974,40 +874,27 @@ function ContentStudio() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{rowTitle(row)}</p>
                   {rowSubtitle(row) && (
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground/60">
-                      {rowSubtitle(row)}
-                    </p>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground/60">{rowSubtitle(row)}</p>
                   )}
                   <div className="mt-1.5 flex items-center gap-2">
-                    <span
-                      className={`rounded-full px-2 py-0.5 font-mono text-[10px] ${row.is_active === false
-                        ? "bg-rose-500/10 text-rose-400"
-                        : "bg-emerald-500/10 text-emerald-400"
-                        }`}
-                    >
+                    <span className={`rounded-full px-2 py-0.5 font-mono text-[10px] ${row.is_active === false ? "bg-rose-500/10 text-rose-400" : "bg-emerald-500/10 text-emerald-400"
+                      }`}>
                       {row.is_active === false ? "Inactive" : "Active"}
                     </span>
                     {"display_order" in row && (
-                      <span className="font-mono text-[10px] text-muted-foreground/50">
-                        #{row.display_order}
-                      </span>
+                      <span className="font-mono text-[10px] text-muted-foreground/50">#{row.display_order}</span>
                     )}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
-                  <button
-                    onClick={() => setEditing(row)}
-                    className="rounded-lg border border-border/50 p-2 text-muted-foreground/60 hover:text-primary"
-                  >
+                  <button onClick={() => setEditing({ ...row })}
+                    className="rounded-lg border border-border/50 p-2 text-muted-foreground/60 hover:text-primary">
                     <Edit3 className="h-3.5 w-3.5" />
                   </button>
                   <button
                     disabled={config.readonly}
-                    onClick={() => {
-                      if (confirm(`Delete "${rowTitle(row)}"?`)) remove.mutate(row.id);
-                    }}
-                    className="rounded-lg border border-border/50 p-2 text-muted-foreground/60 hover:text-destructive disabled:opacity-30"
-                  >
+                    onClick={() => { if (confirm(`Delete "${rowTitle(row)}"?`)) remove.mutate(row.id); }}
+                    className="rounded-lg border border-border/50 p-2 text-muted-foreground/60 hover:text-destructive disabled:opacity-30">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -1049,21 +936,19 @@ function ContentStudio() {
               <div className="grid gap-4 p-5 sm:grid-cols-2">
                 {fields.map((field) => {
                   const wide = isWideField(field, editing[field]);
-
                   return (
                     <label key={field} className={wide ? "sm:col-span-2" : ""}>
                       <span className="mb-1.5 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/60">
                         {field.replace(/_/g, " ")}
-                        {isGalleryField(field) && (
-                          <ImagePlus className="h-3 w-3 text-primary/60" />
+                        {isGalleryField(field) && <ImagePlus className="h-3 w-3 text-primary/60" />}
+                        {isJsonField(field, editing[field]) && !isGalleryField(field) && (
+                          <span className="rounded bg-primary/10 px-1 py-0.5 text-[9px] text-primary">JSON</span>
                         )}
                       </span>
                       <EditableField
                         field={field}
                         value={editing[field]}
-                        onChange={(next) =>
-                          setEditing((curr) => ({ ...curr, [field]: next }))
-                        }
+                        onChange={(next) => setEditing((curr) => ({ ...curr!, [field]: next }))}
                       />
                     </label>
                   );
@@ -1074,7 +959,7 @@ function ContentStudio() {
             {/* Modal footer */}
             <div className="flex shrink-0 items-center justify-between border-t border-border/60 px-5 py-4">
               <p className="hidden text-xs text-muted-foreground/50 sm:block">
-                Arrays / objects → JSON · Empty fields use database defaults
+                Arrays → JSON · Booleans use toggle · Media fields support upload
               </p>
               <div className="flex gap-3">
                 <button
@@ -1089,15 +974,9 @@ function ContentStudio() {
                   className="inline-flex items-center gap-2 rounded-xl bg-gradient-primary px-5 py-2 text-sm font-medium text-primary-foreground shadow-glow transition-all hover:scale-[1.02] disabled:opacity-50"
                 >
                   {save.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Saving…
-                    </>
+                    <><Loader2 className="h-4 w-4 animate-spin" />Saving…</>
                   ) : (
-                    <>
-                      <Save className="h-4 w-4" />
-                      Save Record
-                    </>
+                    <><Save className="h-4 w-4" />Save Record</>
                   )}
                 </button>
               </div>
@@ -1107,13 +986,7 @@ function ContentStudio() {
       )}
 
       {/* ── Toast ── */}
-      {toast && (
-        <Toast
-          type={toast.type}
-          message={toast.message}
-          onClose={() => setToast(null)}
-        />
-      )}
+      {toast && <Toast type={toast.type} message={toast.message} onClose={() => setToast(null)} />}
     </div>
   );
 }

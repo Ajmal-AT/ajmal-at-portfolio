@@ -11,6 +11,7 @@ import {
   Calendar,
   RefreshCw,
   Filter,
+  ExternalLink,
 } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/_authenticated/admin/inquiries")({
   component: AdminInquiries,
 });
 
+// Matches the actual inquiries table schema exactly
 type Inquiry = {
   id: string;
   name: string;
@@ -40,7 +42,7 @@ function AdminInquiries() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inquiries")
-        .select("*")
+        .select("id, name, email, service, budget, timeline, message, handled, created_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Inquiry[];
@@ -53,7 +55,7 @@ function AdminInquiries() {
         .from("inquiries")
         .update({ handled })
         .eq("id", id);
-      if (error) throw error;
+      if (error) throw new Error(error.message);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-inquiries"] }),
   });
@@ -61,7 +63,7 @@ function AdminInquiries() {
   const remove = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("inquiries").delete().eq("id", id);
-      if (error) throw error;
+      if (error) throw new Error(error.message);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-inquiries"] }),
   });
@@ -74,6 +76,15 @@ function AdminInquiries() {
 
   const openCount = (data ?? []).filter((i) => !i.handled).length;
 
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -81,17 +92,13 @@ function AdminInquiries() {
         <div>
           <div className="flex items-center gap-2">
             <Inbox className="h-4 w-4 text-primary" />
-            <p className="font-mono text-xs uppercase tracking-widest text-primary">
-              inquiries
-            </p>
+            <p className="font-mono text-xs uppercase tracking-widest text-primary">inquiries</p>
           </div>
-          <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">
-            Project Inquiries
-          </h1>
+          <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">Project Inquiries</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Leads submitted via the contact form.
             {openCount > 0 && (
-              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 font-mono text-[11px] text-amber-400">
+              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 font-mono text-[11px] text-amber-400">
                 {openCount} open
               </span>
             )}
@@ -128,6 +135,22 @@ function AdminInquiries() {
         ))}
       </div>
 
+      {/* Summary stats */}
+      {!isLoading && (data ?? []).length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: "Total", value: (data ?? []).length, color: "text-foreground" },
+            { label: "Open", value: openCount, color: "text-amber-400" },
+            { label: "Handled", value: (data ?? []).length - openCount, color: "text-emerald-400" },
+          ].map((s) => (
+            <div key={s.label} className="rounded-xl border border-border/60 bg-surface/40 px-4 py-3 text-center">
+              <p className={`font-display text-2xl font-semibold tabular-nums ${s.color}`}>{s.value}</p>
+              <p className="mt-0.5 font-mono text-[11px] text-muted-foreground/60">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* List */}
       <div className="space-y-3">
         {isLoading && (
@@ -144,108 +167,166 @@ function AdminInquiries() {
             <Inbox className="h-8 w-8 text-muted-foreground/40" />
             <p className="mt-3 text-sm font-medium text-muted-foreground">No inquiries here</p>
             <p className="mt-1 text-xs text-muted-foreground/60">
-              {filter !== "all" ? "Try switching the filter above" : "Inquiries will appear when visitors submit the contact form"}
+              {filter !== "all"
+                ? "Try switching the filter above"
+                : "Inquiries will appear when visitors submit the contact form"}
             </p>
           </div>
         )}
 
-        {filtered.map((i) => (
-          <div
-            key={i.id}
-            className={`group relative overflow-hidden rounded-2xl border transition-all ${i.handled
-              ? "border-border/40 bg-surface/20 opacity-60"
-              : "border-border/60 bg-surface/50 hover:border-border/80 hover:bg-surface/70"
+        {filtered.map((inquiry) => (
+          <InquiryCard
+            key={inquiry.id}
+            inquiry={inquiry}
+            onToggleHandled={() =>
+              setHandled.mutate({ id: inquiry.id, handled: !inquiry.handled })
+            }
+            onDelete={() => {
+              if (confirm(`Delete inquiry from ${inquiry.name}?`)) remove.mutate(inquiry.id);
+            }}
+            isTogglingHandled={setHandled.isPending}
+            isDeleting={remove.isPending}
+            formatDate={formatDate}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Inquiry card component ───────────────────────────────────────────────────
+function InquiryCard({
+  inquiry,
+  onToggleHandled,
+  onDelete,
+  isTogglingHandled,
+  isDeleting,
+  formatDate,
+}: {
+  inquiry: Inquiry;
+  onToggleHandled: () => void;
+  onDelete: () => void;
+  isTogglingHandled: boolean;
+  isDeleting: boolean;
+  formatDate: (iso: string) => string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const metaItems = [
+    inquiry.service && { icon: Filter, label: inquiry.service },
+    inquiry.budget && { icon: DollarSign, label: inquiry.budget },
+    inquiry.timeline && { icon: Calendar, label: inquiry.timeline },
+  ].filter(Boolean) as { icon: React.ElementType; label: string }[];
+
+  return (
+    <div
+      className={`group relative overflow-hidden rounded-2xl border transition-all ${inquiry.handled
+        ? "border-border/40 bg-surface/20 opacity-70"
+        : "border-border/60 bg-surface/50 hover:border-border/80 hover:bg-surface/70"
+        }`}
+    >
+      {/* Left accent bar — only for unhandled */}
+      {!inquiry.handled && (
+        <div className="absolute inset-y-0 left-0 w-0.5 bg-gradient-to-b from-primary to-accent" />
+      )}
+
+      <div className="p-5 pl-6">
+        {/* Top row */}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-semibold">{inquiry.name}</p>
+              {inquiry.handled ? (
+                <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] text-emerald-400">
+                  handled
+                </span>
+              ) : (
+                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-mono text-[10px] text-amber-400">
+                  open
+                </span>
+              )}
+            </div>
+
+            {/* Contact info row */}
+            <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+              <a
+                href={`mailto:${inquiry.email}`}
+                className="inline-flex items-center gap-1 transition-colors hover:text-primary"
+              >
+                <Mail className="h-3 w-3" />
+                {inquiry.email}
+                <ExternalLink className="h-2.5 w-2.5 opacity-50" />
+              </a>
+            </div>
+
+            {/* Meta pills */}
+            {metaItems.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {metaItems.map(({ icon: Icon, label }) => (
+                  <span
+                    key={label}
+                    className="inline-flex items-center gap-1 rounded-lg border border-border/40 bg-background/40 px-2.5 py-1 font-mono text-[10px] text-muted-foreground/70"
+                  >
+                    <Icon className="h-2.5 w-2.5" />
+                    {label}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground/60">
+              <Clock className="h-3 w-3" />
+              {formatDate(inquiry.created_at)}
+            </span>
+            <button
+              onClick={onToggleHandled}
+              disabled={isTogglingHandled}
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50 ${inquiry.handled
+                ? "border-border/60 text-muted-foreground hover:border-border hover:text-foreground"
+                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                }`}
+            >
+              {isTogglingHandled ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Check className="h-3.5 w-3.5" />
+              )}
+              {inquiry.handled ? "Reopen" : "Mark done"}
+            </button>
+            <button
+              onClick={onDelete}
+              disabled={isDeleting}
+              className="rounded-lg border border-transparent p-1.5 text-muted-foreground/40 transition-all hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+            >
+              {isDeleting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Message */}
+        <div className="mt-4 rounded-xl bg-background/40 px-4 py-3">
+          <p
+            className={`whitespace-pre-wrap text-sm leading-relaxed text-foreground/85 transition-all ${!expanded && inquiry.message.length > 300 ? "line-clamp-4" : ""
               }`}
           >
-            {/* Left accent */}
-            {!i.handled && (
-              <div className="absolute inset-y-0 left-0 w-0.5 bg-gradient-to-b from-primary to-accent" />
-            )}
-
-            <div className="p-5 pl-6">
-              {/* Top row */}
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold">{i.name}</p>
-                    {i.handled ? (
-                      <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] text-emerald-400">
-                        handled
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-mono text-[10px] text-amber-400">
-                        open
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Mail className="h-3 w-3" />
-                      {i.email}
-                    </span>
-                    {i.service && (
-                      <span className="flex items-center gap-1">
-                        <Filter className="h-3 w-3" />
-                        {i.service}
-                      </span>
-                    )}
-                    {i.budget && (
-                      <span className="flex items-center gap-1">
-                        <DollarSign className="h-3 w-3" />
-                        {i.budget}
-                      </span>
-                    )}
-                    {i.timeline && (
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {i.timeline}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex shrink-0 items-center gap-2">
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground/60">
-                    <Clock className="h-3 w-3" />
-                    {new Date(i.created_at).toLocaleDateString("en-IN", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </span>
-                  <button
-                    onClick={() => setHandled.mutate({ id: i.id, handled: !i.handled })}
-                    disabled={setHandled.isPending}
-                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50 ${i.handled
-                      ? "border-border/60 text-muted-foreground hover:border-border hover:text-foreground"
-                      : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                      }`}
-                  >
-                    <Check className="h-3.5 w-3.5" />
-                    {i.handled ? "Reopen" : "Mark done"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (confirm(`Delete inquiry from ${i.name}?`)) remove.mutate(i.id);
-                    }}
-                    disabled={remove.isPending}
-                    className="rounded-lg border border-transparent p-1.5 text-muted-foreground/40 transition-all hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Message */}
-              <div className="mt-4 rounded-xl bg-background/40 px-4 py-3">
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/85">
-                  {i.message}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
+            {inquiry.message}
+          </p>
+          {inquiry.message.length > 300 && (
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="mt-2 font-mono text-[11px] text-primary/70 hover:text-primary"
+            >
+              {expanded ? "Show less ↑" : "Read more ↓"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

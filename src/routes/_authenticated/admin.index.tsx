@@ -22,22 +22,35 @@ function AdminHome() {
   const { data, isLoading } = useQuery({
     queryKey: ["admin-overview"],
     queryFn: async () => {
-      const [projects, services, inquiries, open, media] = await Promise.all([
-        db.from("projects").select("id", { count: "exact", head: true }),
-        db
-          .from("software_services")
-          .select("id", { count: "exact", head: true })
-          .eq("is_active", true),
-        db.from("inquiries").select("id", { count: "exact", head: true }),
-        db
-          .from("inquiries")
-          .select("id", { count: "exact", head: true })
-          .eq("handled", false),
-        db.from("media_assets").select("id", { count: "exact", head: true }),
-      ]);
+      const [projects, software, resumeSvc, portfolioSvc, inquiries, open, media] =
+        await Promise.all([
+          db.from("projects").select("id", { count: "exact", head: true }),
+          db
+            .from("software_services")
+            .select("id", { count: "exact", head: true })
+            .eq("is_active", true),
+          db
+            .from("resume_services")
+            .select("id", { count: "exact", head: true })
+            .eq("is_active", true),
+          db
+            .from("portfolio_services")
+            .select("id", { count: "exact", head: true })
+            .eq("is_active", true),
+          db.from("inquiries").select("id", { count: "exact", head: true }),
+          db
+            .from("inquiries")
+            .select("id", { count: "exact", head: true })
+            .eq("handled", false),
+          db.from("media_assets").select("id", { count: "exact", head: true }),
+        ]);
+
+      const totalServices =
+        (software.count ?? 0) + (resumeSvc.count ?? 0) + (portfolioSvc.count ?? 0);
+
       return {
         projects: projects.count ?? 0,
-        services: services.count ?? 0,
+        services: totalServices,
         inquiries: inquiries.count ?? 0,
         open: open.count ?? 0,
         media: media.count ?? 0,
@@ -59,7 +72,7 @@ function AdminHome() {
       Icon: Database,
       label: "Active Services",
       value: data?.services ?? "—",
-      sub: "Visible to visitors",
+      sub: "Across all service types",
       color: "text-violet-400",
       bg: "bg-violet-500/10",
       border: "border-violet-500/20",
@@ -115,13 +128,9 @@ function AdminHome() {
         <div>
           <div className="flex items-center gap-2">
             <Activity className="h-4 w-4 text-primary" />
-            <p className="font-mono text-xs uppercase tracking-widest text-primary">
-              overview
-            </p>
+            <p className="font-mono text-xs uppercase tracking-widest text-primary">overview</p>
           </div>
-          <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">
-            Dashboard
-          </h1>
+          <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">Dashboard</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Platform health and content pipeline at a glance.
           </p>
@@ -142,10 +151,7 @@ function AdminHome() {
             key={c.label}
             className={`group relative overflow-hidden rounded-2xl border ${c.border} bg-surface/60 p-5 backdrop-blur transition-all hover:bg-surface/80`}
           >
-            {/* Glow orb */}
-            <div
-              className={`absolute -right-4 -top-4 h-20 w-20 rounded-full ${c.bg} blur-2xl transition-all group-hover:scale-150`}
-            />
+            <div className={`absolute -right-4 -top-4 h-20 w-20 rounded-full ${c.bg} blur-2xl transition-all group-hover:scale-150`} />
             <div className="relative">
               <div className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${c.bg} ${c.color}`}>
                 <c.Icon className="h-4 w-4" />
@@ -168,9 +174,7 @@ function AdminHome() {
       <div>
         <div className="mb-3 flex items-center gap-2">
           <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
-          <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-            Quick actions
-          </p>
+          <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Quick actions</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {quickLinks.map(({ to, label, desc, Icon }) => (
