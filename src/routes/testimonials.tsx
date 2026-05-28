@@ -123,24 +123,43 @@ function StepDot({
   );
 }
 
+// Steps: 1 = Verify, 2 = Details, 3 = Submit
 function FormSteps({
-  otpSent,
   verified,
+  detailsFilled,
 }: {
-  otpSent: boolean;
   verified: boolean;
+  detailsFilled: boolean;
 }) {
   return (
     <div className="flex items-start gap-0 mb-8">
-      <StepDot n={1} status="done" label="Details" />
-      <div className="flex-1 mt-4 h-px bg-gradient-to-r from-primary/60 to-border/40" />
       <StepDot
-        n={2}
-        status={verified ? "done" : otpSent ? "active" : "idle"}
+        n={1}
+        status={verified ? "done" : "active"}
         label="Verify"
       />
-      <div className="flex-1 mt-4 h-px bg-gradient-to-r from-border/40 to-border/20" />
-      <StepDot n={3} status={verified ? "active" : "idle"} label="Submit" />
+      <div
+        className={`flex-1 mt-4 h-px bg-gradient-to-r transition-all duration-500 ${verified
+          ? "from-primary/60 to-primary/30"
+          : "from-border/40 to-border/20"
+          }`}
+      />
+      <StepDot
+        n={2}
+        status={verified && detailsFilled ? "done" : verified ? "active" : "idle"}
+        label="Details"
+      />
+      <div
+        className={`flex-1 mt-4 h-px bg-gradient-to-r transition-all duration-500 ${verified && detailsFilled
+          ? "from-primary/30 to-primary/20"
+          : "from-border/40 to-border/20"
+          }`}
+      />
+      <StepDot
+        n={3}
+        status={verified && detailsFilled ? "active" : "idle"}
+        label="Submit"
+      />
     </div>
   );
 }
@@ -731,6 +750,19 @@ function SubmitTestimonialForm({ onSuccess }: { onSuccess: () => void }) {
 
   const rating = watch("rating");
   const review = watch("review");
+  const clientName = watch("client_name");
+  const projectRef = watch("project_reference");
+
+  // Determine if details section has been meaningfully filled
+  const detailsFilled =
+    verified &&
+    !!clientName &&
+    clientName.length >= 2 &&
+    !!projectRef &&
+    projectRef.length >= 2 &&
+    !!review &&
+    review.length >= 20 &&
+    rating >= 1;
 
   function startCooldown(seconds = 60) {
     setResendCooldown(seconds);
@@ -788,7 +820,7 @@ function SubmitTestimonialForm({ onSuccess }: { onSuccess: () => void }) {
     }
     setVerificationToken(data?.token ?? null);
     setVerified(true);
-    setOtpInfo("Email verified. You can now submit your testimonial.");
+    setOtpInfo("Email verified. You can now fill in your review below.");
   };
 
   const submitMutation = useMutation({
@@ -833,65 +865,33 @@ function SubmitTestimonialForm({ onSuccess }: { onSuccess: () => void }) {
       onSubmit={handleSubmit((data) => submitMutation.mutate(data))}
       className="space-y-7"
     >
-      <FormSteps otpSent={otpSent} verified={verified} />
+      {/* ── Step indicator ── */}
+      <FormSteps verified={verified} detailsFilled={detailsFilled} />
 
-      {/* Name + Company */}
-      <div className="grid gap-5 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <label className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/70">
-            <User className="h-3 w-3" />
-            Full name <span className="text-destructive">*</span>
-          </label>
-          <input
-            {...register("client_name")}
-            placeholder="John Smith"
-            className={inputCls}
-          />
-          {errors.client_name && (
-            <p className="font-mono text-[11px] text-destructive">
-              {errors.client_name.message}
-            </p>
-          )}
-        </div>
-        <div className="space-y-1.5">
-          <label className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/70">
-            <Building2 className="h-3 w-3" />
-            Company name
-          </label>
-          <input
-            {...register("company_name")}
-            placeholder="Acme Inc."
-            className={inputCls}
-          />
-        </div>
-      </div>
-
-      {/* Project reference */}
-      <div className="space-y-1.5">
-        <label className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/70">
-          <Briefcase className="h-3 w-3" />
-          Project / Service <span className="text-destructive">*</span>
-        </label>
-        <input
-          {...register("project_reference")}
-          placeholder="e.g. Portfolio Website, SaaS Platform"
-          className={inputCls}
-        />
-        {errors.project_reference && (
-          <p className="font-mono text-[11px] text-destructive">
-            {errors.project_reference.message}
-          </p>
-        )}
-      </div>
-
-      {/* OTP verification */}
+      {/* ══════════════════════════════════════════════
+          STEP 1 — Email Verification (always visible)
+      ══════════════════════════════════════════════ */}
       <div className="rounded-2xl border border-border/50 bg-background/30 p-5 space-y-4">
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-2">
+          <div
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-[10px] font-semibold transition-colors duration-300 ${verified
+              ? "bg-primary text-primary-foreground"
+              : "border-2 border-primary text-primary bg-primary/10"
+              }`}
+          >
+            {verified ? "✓" : "1"}
+          </div>
           <ShieldCheck className="h-4 w-4 text-primary" />
           <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/70">
             Email Verification
           </span>
+          {!verified && (
+            <span className="ml-auto font-mono text-[10px] text-primary/60 bg-primary/8 border border-primary/20 rounded-full px-2.5 py-0.5">
+              Required first
+            </span>
+          )}
         </div>
+
         <OtpSection
           email={email}
           onEmailChange={(v) => {
@@ -919,100 +919,182 @@ function SubmitTestimonialForm({ onSuccess }: { onSuccess: () => void }) {
         />
       </div>
 
-      {/* Rating */}
-      <div className="space-y-2">
-        <label className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/70">
-          <Star className="h-3 w-3" />
-          Rating <span className="text-destructive">*</span>
-        </label>
-        <div className="rounded-xl border border-border/60 bg-background/40 px-4 py-3.5">
-          <StarPicker
-            value={rating}
-            onChange={(n) => setValue("rating", n, { shouldValidate: true })}
-          />
-        </div>
-        {errors.rating && (
-          <p className="font-mono text-[11px] text-destructive">
-            Please select a rating
-          </p>
-        )}
-      </div>
-
-      {/* Review */}
-      <div className="space-y-1.5">
-        <label className="flex items-center justify-between">
-          <span className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/70">
-            <MessageSquare className="h-3 w-3" />
-            Your review <span className="text-destructive">*</span>
-          </span>
-          <span
-            className={`font-mono text-[10px] transition-colors ${(review?.length ?? 0) > 900
-              ? "text-destructive"
-              : "text-muted-foreground/40"
+      {/* ══════════════════════════════════════════════
+          STEP 2 — Review Details (locked until verified)
+      ══════════════════════════════════════════════ */}
+      <div
+        className={`space-y-7 transition-all duration-500 ${verified
+          ? "opacity-100 pointer-events-auto"
+          : "opacity-40 pointer-events-none select-none"
+          }`}
+      >
+        {/* Section header */}
+        <div className="flex items-center gap-3">
+          <div
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-[10px] font-semibold transition-colors duration-300 ${detailsFilled
+              ? "bg-primary text-primary-foreground"
+              : verified
+                ? "border-2 border-primary text-primary bg-primary/10"
+                : "border border-border/60 text-muted-foreground bg-surface/40"
               }`}
           >
-            {review?.length ?? 0}/1000
-          </span>
-        </label>
-        <textarea
-          {...register("review")}
-          rows={5}
-          placeholder="Describe your experience working with Ajmal. What problem did he solve? What made the collaboration exceptional?"
-          className={`${inputCls} resize-none leading-relaxed`}
-        />
-        {errors.review && (
-          <p className="font-mono text-[11px] text-destructive">
-            {errors.review.message}
-          </p>
-        )}
-      </div>
-
-      {/* Media uploads */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 mb-3">
-          <ImageIcon className="h-4 w-4 text-primary" />
+            {detailsFilled ? "✓" : "2"}
+          </div>
+          <MessageSquare className="h-4 w-4 text-primary/70" />
           <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/70">
-            Optional Media
+            Your Review
           </span>
-          <span className="font-mono text-[10px] text-muted-foreground/40">
-            (makes your review stand out)
-          </span>
+          {!verified && (
+            <span className="ml-auto font-mono text-[10px] text-muted-foreground/40 bg-surface/40 border border-border/40 rounded-full px-2.5 py-0.5">
+              Verify email first
+            </span>
+          )}
         </div>
-        <div className="grid gap-5 sm:grid-cols-3">
-          <MediaUploadField
-            label="Your photo"
-            icon={<User className="h-3 w-3" />}
-            accept="image/*"
-            mediaType="image"
-            bucket="testimonial-client-images"
-            value={clientImageUrl}
-            onChange={setClientImageUrl}
-            hint="JPG, PNG · max 5MB"
+
+        {/* Name + Company */}
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/70">
+              <User className="h-3 w-3" />
+              Full name <span className="text-destructive">*</span>
+            </label>
+            <input
+              {...register("client_name")}
+              placeholder="John Smith"
+              className={inputCls}
+            />
+            {errors.client_name && (
+              <p className="font-mono text-[11px] text-destructive">
+                {errors.client_name.message}
+              </p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/70">
+              <Building2 className="h-3 w-3" />
+              Company name
+            </label>
+            <input
+              {...register("company_name")}
+              placeholder="Acme Inc."
+              className={inputCls}
+            />
+          </div>
+        </div>
+
+        {/* Project reference */}
+        <div className="space-y-1.5">
+          <label className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/70">
+            <Briefcase className="h-3 w-3" />
+            Project / Service <span className="text-destructive">*</span>
+          </label>
+          <input
+            {...register("project_reference")}
+            placeholder="e.g. Portfolio Website, SaaS Platform"
+            className={inputCls}
           />
-          <MediaUploadField
-            label="Project image"
-            icon={<ImageIcon className="h-3 w-3" />}
-            accept="image/*"
-            mediaType="image"
-            bucket="testimonial-project-images"
-            value={projectImageUrl}
-            onChange={setProjectImageUrl}
-            hint="Screenshot or mockup"
+          {errors.project_reference && (
+            <p className="font-mono text-[11px] text-destructive">
+              {errors.project_reference.message}
+            </p>
+          )}
+        </div>
+
+        {/* Rating */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/70">
+            <Star className="h-3 w-3" />
+            Rating <span className="text-destructive">*</span>
+          </label>
+          <div className="rounded-xl border border-border/60 bg-background/40 px-4 py-3.5">
+            <StarPicker
+              value={rating}
+              onChange={(n) => setValue("rating", n, { shouldValidate: true })}
+            />
+          </div>
+          {errors.rating && (
+            <p className="font-mono text-[11px] text-destructive">
+              Please select a rating
+            </p>
+          )}
+        </div>
+
+        {/* Review */}
+        <div className="space-y-1.5">
+          <label className="flex items-center justify-between">
+            <span className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/70">
+              <MessageSquare className="h-3 w-3" />
+              Your review <span className="text-destructive">*</span>
+            </span>
+            <span
+              className={`font-mono text-[10px] transition-colors ${(review?.length ?? 0) > 900
+                ? "text-destructive"
+                : "text-muted-foreground/40"
+                }`}
+            >
+              {review?.length ?? 0}/1000
+            </span>
+          </label>
+          <textarea
+            {...register("review")}
+            rows={5}
+            placeholder="Describe your experience working with Ajmal. What problem did he solve? What made the collaboration exceptional?"
+            className={`${inputCls} resize-none leading-relaxed`}
           />
-          <MediaUploadField
-            label="Video testimonial"
-            icon={<Video className="h-3 w-3" />}
-            accept="video/*"
-            mediaType="video"
-            bucket="testimonial-videos"
-            value={videoUrl}
-            onChange={setVideoUrl}
-            hint="MP4, MOV · max 100MB"
-          />
+          {errors.review && (
+            <p className="font-mono text-[11px] text-destructive">
+              {errors.review.message}
+            </p>
+          )}
+        </div>
+
+        {/* Media uploads */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 mb-3">
+            <ImageIcon className="h-4 w-4 text-primary" />
+            <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/70">
+              Optional Media
+            </span>
+            <span className="font-mono text-[10px] text-muted-foreground/40">
+              (makes your review stand out)
+            </span>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-3">
+            <MediaUploadField
+              label="Your photo"
+              icon={<User className="h-3 w-3" />}
+              accept="image/*"
+              mediaType="image"
+              bucket="testimonial-client-images"
+              value={clientImageUrl}
+              onChange={setClientImageUrl}
+              hint="JPG, PNG · max 5MB"
+            />
+            <MediaUploadField
+              label="Project image"
+              icon={<ImageIcon className="h-3 w-3" />}
+              accept="image/*"
+              mediaType="image"
+              bucket="testimonial-project-images"
+              value={projectImageUrl}
+              onChange={setProjectImageUrl}
+              hint="Screenshot or mockup"
+            />
+            <MediaUploadField
+              label="Video testimonial"
+              icon={<Video className="h-3 w-3" />}
+              accept="video/*"
+              mediaType="video"
+              bucket="testimonial-videos"
+              value={videoUrl}
+              onChange={setVideoUrl}
+              hint="MP4, MOV · max 100MB"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Submit error */}
+      {/* ── Submit error ── */}
       {submitMutation.isError && (
         <div className="rounded-xl border border-destructive/20 bg-destructive/8 px-4 py-3 text-sm text-destructive">
           {submitMutation.error instanceof Error
@@ -1021,13 +1103,13 @@ function SubmitTestimonialForm({ onSuccess }: { onSuccess: () => void }) {
         </div>
       )}
 
-      {/* Note */}
+      {/* ── Note ── */}
       <p className="font-mono text-[10px] text-muted-foreground/40">
         * Your review will appear after moderation (usually within 24h). Email
         is never shown publicly.
       </p>
 
-      {/* Submit button */}
+      {/* ── Submit button ── */}
       <button
         type="submit"
         disabled={submitMutation.isPending || !verified}
