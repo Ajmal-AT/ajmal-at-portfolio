@@ -15,6 +15,7 @@ import {
   Image as ImageIcon,
   Loader2,
   Mail,
+  MapPin,
   MessageCircle,
   MessageSquare,
   MessageSquareQuote,
@@ -69,6 +70,7 @@ async function callEdge<T = unknown>(
 const schema = z.object({
   client_name: z.string().min(2, "Name must be at least 2 characters").max(80),
   company_name: z.string().max(80).optional().or(z.literal("")),
+  client_location: z.string().max(100).optional().or(z.literal("")),
   project_reference: z.string().min(2, "Please mention the project").max(120),
   review: z
     .string()
@@ -669,6 +671,19 @@ function TestimonialCard({
                     {item.company_name}
                   </p>
                 )}
+                {/* ── Client location geo-badge ── */}
+                {item.client_location && (
+                  <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-border/40 bg-background/50 px-2 py-0.5 backdrop-blur-sm">
+                    <span className="relative flex h-1.5 w-1.5 shrink-0">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/50 opacity-75" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary/70" />
+                    </span>
+                    <MapPin className="h-2.5 w-2.5 shrink-0 text-primary/55" />
+                    <span className="font-mono text-[10px] tracking-wide text-muted-foreground/60">
+                      {item.client_location}
+                    </span>
+                  </div>
+                )}
               </div>
             </figcaption>
           </div>
@@ -832,6 +847,7 @@ function SubmitTestimonialForm({ onSuccess }: { onSuccess: () => void }) {
           client_name: data.client_name,
           client_email: email,
           company_name: data.company_name || null,
+          client_location: data.client_location || null,
           project_reference: data.project_reference,
           review: data.review,
           rating: data.rating,
@@ -951,7 +967,7 @@ function SubmitTestimonialForm({ onSuccess }: { onSuccess: () => void }) {
           )}
         </div>
 
-        {/* Name + Company */}
+        {/* Name + Company + Location */}
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="space-y-1.5">
             <label className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/70">
@@ -980,6 +996,35 @@ function SubmitTestimonialForm({ onSuccess }: { onSuccess: () => void }) {
               className={inputCls}
             />
           </div>
+        </div>
+
+        {/* Location field */}
+        <div className="space-y-1.5">
+          <label className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/70">
+            <MapPin className="h-3 w-3" />
+            Location
+            <span className="ml-auto font-mono text-[10px] normal-case tracking-normal text-muted-foreground/35">
+              City, Country
+            </span>
+          </label>
+          <div className="relative">
+            <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+              <span className="relative flex h-1.5 w-1.5 shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/50 opacity-75" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary/70" />
+              </span>
+            </div>
+            <input
+              {...register("client_location")}
+              placeholder="New York, USA"
+              className={`${inputCls} pl-8`}
+            />
+          </div>
+          {errors.client_location && (
+            <p className="font-mono text-[11px] text-destructive">
+              {errors.client_location.message}
+            </p>
+          )}
         </div>
 
         {/* Project reference */}

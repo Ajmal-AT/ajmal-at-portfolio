@@ -11,6 +11,7 @@ import {
   Github,
   Image as ImageIcon,
   Linkedin,
+  MapPin,
   Play,
   Sparkles,
   Star,
@@ -283,14 +284,29 @@ function Card({ project, index }: { project: AnyRecord; index: number }) {
 
             {/* Client info */}
             {project.client_name && (
-              <div className="mt-4 flex items-center gap-2">
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary ring-1 ring-primary/15">
-                  <Briefcase className="h-3 w-3" />
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary ring-1 ring-primary/15">
+                    <Briefcase className="h-3 w-3" />
+                  </div>
+                  <span className="font-mono text-[11px] text-muted-foreground/60 truncate">
+                    {project.client_name}
+                  </span>
+                  <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-primary/60" />
                 </div>
-                <span className="font-mono text-[11px] text-muted-foreground/60 truncate">
-                  {project.client_name}
-                </span>
-                <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-primary/60" />
+                {/* ── Client location geo-badge ── */}
+                {project.client_location && (
+                  <div className="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-background/50 px-2.5 py-1 backdrop-blur-sm">
+                    <span className="relative flex h-1.5 w-1.5 shrink-0">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/50 opacity-75" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary/70" />
+                    </span>
+                    <MapPin className="h-2.5 w-2.5 shrink-0 text-primary/60" />
+                    <span className="font-mono text-[10px] tracking-wide text-muted-foreground/65">
+                      {project.client_location}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
