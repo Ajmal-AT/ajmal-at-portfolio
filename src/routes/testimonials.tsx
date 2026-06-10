@@ -444,6 +444,8 @@ function MediaUploadField({
                 <img
                   src={preview || value}
                   alt="Preview"
+                  loading="lazy"
+                  decoding="async"
                   className="w-full max-h-40 object-cover rounded-xl"
                 />
               ) : (
@@ -558,6 +560,8 @@ function Avatar({ name, image }: { name: string; image?: string | null }) {
       <img
         src={image}
         alt={name}
+        loading="lazy"
+        decoding="async"
         className="h-11 w-11 rounded-full object-cover ring-2 ring-border/50"
       />
     );
@@ -598,6 +602,8 @@ function TestimonialCard({
                 <img
                   src={item.project_image}
                   alt={item.project_reference ?? "Project"}
+                  loading="lazy"
+                  decoding="async"
                   className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-surface/80" />

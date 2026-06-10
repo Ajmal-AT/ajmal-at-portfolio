@@ -14,6 +14,15 @@ const links = [
   { to: "/contact", label: "Contact" },
 ] as const;
 
+const desktopLinkClass =
+  "relative rounded-md border border-transparent px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground";
+const desktopActiveLinkClass =
+  "relative rounded-md border border-primary/25 bg-primary/10 px-3 py-2 text-sm font-medium text-primary shadow-[inset_0_-2px_0_oklch(0.72_0.18_245/0.7)]";
+const mobileLinkClass =
+  "block rounded-md border border-transparent px-3 py-2.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground";
+const mobileActiveLinkClass =
+  "block rounded-md border border-primary/25 bg-primary/10 px-3 py-2.5 text-sm font-medium text-primary";
+
 export function Navbar() {
   const [open, setOpen] = useState(false);
   return (
@@ -22,7 +31,7 @@ export function Navbar() {
       <nav className="relative mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <Link to="/" className="group flex items-center gap-2.5">
           <span className="relative inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg">
-            <img src={logoUrl} alt="Ajmal AT" width={36} height={36} className="h-9 w-9 object-contain" />
+            <img src={logoUrl} alt="Ajmal AT" width={36} height={36} decoding="async" className="h-9 w-9 object-contain" />
           </span>
           <span className="font-display text-base font-semibold tracking-tight">
             AJMAL <span className="gradient-brand">AT</span>
@@ -34,8 +43,8 @@ export function Navbar() {
             <li key={l.to}>
               <Link
                 to={l.to}
-                className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-                activeProps={{ className: "rounded-md px-3 py-2 text-sm text-foreground" }}
+                className={desktopLinkClass}
+                activeProps={{ className: desktopActiveLinkClass }}
                 activeOptions={{ exact: l.to === "/" }}
               >
                 {l.label}
@@ -71,8 +80,8 @@ export function Navbar() {
                 <Link
                   to={l.to}
                   onClick={() => setOpen(false)}
-                  className="block rounded-md px-3 py-2.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  activeProps={{ className: "block rounded-md px-3 py-2.5 text-sm text-foreground bg-secondary" }}
+                  className={mobileLinkClass}
+                  activeProps={{ className: mobileActiveLinkClass }}
                   activeOptions={{ exact: l.to === "/" }}
                 >
                   {l.label}

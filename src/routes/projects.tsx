@@ -102,6 +102,8 @@ function GalleryLightbox({
         <img
           src={images[current]}
           alt={`Gallery image ${current + 1}`}
+          loading="lazy"
+          decoding="async"
           className="w-full max-h-[80vh] object-contain rounded-2xl ring-1 ring-border/40 shadow-2xl"
         />
         {images.length > 1 && (
@@ -198,6 +200,8 @@ function Card({ project, index }: { project: AnyRecord; index: number }) {
               <img
                 src={heroImage}
                 alt={project.title}
+                loading="lazy"
+                decoding="async"
                 className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
             ) : null}
@@ -253,6 +257,8 @@ function Card({ project, index }: { project: AnyRecord; index: number }) {
                   <img
                     src={img}
                     alt={`Gallery ${i + 1}`}
+                    loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover"
                   />
                   {i === 3 && galleryImages.length > 4 && (
