@@ -108,15 +108,173 @@ export function sectionByKey(sections: AnyRecord[], key: string) {
   return sections.find((section) => section.section_key === key) ?? {};
 }
 
-export function seoHead(pageName: string, fallbackTitle: string) {
+export const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "https://ajmalat.com").replace(
+  /\/$/,
+  "",
+);
+
+const defaultOgImage = `${SITE_URL}/og-image.jpg`;
+
+const seoPages = {
+  home: {
+    path: "/",
+    title: "Ajmal AT | Full Stack Developer",
+    description:
+      "Full Stack Developer specializing in React, Node.js, scalable SaaS platforms, backend APIs, and modern web applications for growing businesses.",
+    keywords: "Full Stack Developer, React Developer, Node.js Developer, SaaS Developer",
+    schemaType: "Person",
+  },
+  about: {
+    path: "/about",
+    title: "About Ajmal AT | Full Stack Developer",
+    description:
+      "Learn about Ajmal AT, a full stack developer building scalable web applications, backend systems, cloud integrations, and polished digital products.",
+    keywords: "About Ajmal AT, Full Stack Developer India, Software Engineer",
+    schemaType: "AboutPage",
+  },
+  services: {
+    path: "/services",
+    title: "Web Development Services | Ajmal AT",
+    description:
+      "Explore web development services for custom websites, SaaS products, backend APIs, portfolios, resumes, and production-ready business applications.",
+    keywords: "Web Development Services, React Development Services, SaaS Development",
+    schemaType: "Service",
+  },
+  projects: {
+    path: "/projects",
+    title: "React Projects Portfolio | Ajmal AT",
+    description:
+      "Browse selected React, full stack, SaaS, backend, and web application projects designed and engineered by Ajmal AT.",
+    keywords: "React Projects Portfolio, Full Stack Projects, Web App Portfolio",
+    schemaType: "CollectionPage",
+  },
+  testimonials: {
+    path: "/testimonials",
+    title: "Client Testimonials | Ajmal AT",
+    description:
+      "Read client testimonials and project feedback from people who worked with Ajmal AT on websites, apps, portfolios, resumes, and software products.",
+    keywords: "Ajmal AT Testimonials, Developer Reviews, Client Feedback",
+    schemaType: "Review",
+  },
+  resume: {
+    path: "/resume",
+    title: "Resume | Ajmal AT Full Stack Developer",
+    description:
+      "View and download Ajmal AT's full stack developer resume, including experience with React, Node.js, backend APIs, cloud, and modern web platforms.",
+    keywords: "Ajmal AT Resume, Full Stack Developer Resume, React Developer Resume",
+    schemaType: "ProfilePage",
+  },
+  contact: {
+    path: "/contact",
+    title: "Hire React Developer | Contact Ajmal AT",
+    description:
+      "Contact Ajmal AT to hire a React and full stack developer for websites, SaaS products, backend systems, portfolios, resumes, and custom software.",
+    keywords: "Hire React Developer, Hire Full Stack Developer, Contact Ajmal AT",
+    schemaType: "ContactPage",
+  },
+} as const;
+
+export const publicRoutes = Object.values(seoPages).map(({ path }) => path);
+
+function absoluteUrl(path: string) {
+  return `${SITE_URL}${path === "/" ? "" : path}`;
+}
+
+function jsonLdForPage(pageName: keyof typeof seoPages) {
+  const page = seoPages[pageName];
+  const url = absoluteUrl(page.path);
+  const person = {
+    "@type": "Person",
+    "@id": `${SITE_URL}/#person`,
+    name: "Ajmal AT",
+    url: SITE_URL,
+    jobTitle: "Full Stack Developer",
+    knowsAbout: ["React", "Node.js", "SaaS development", "Backend APIs", "Web applications"],
+  };
+  const website = {
+    "@type": "WebSite",
+    "@id": `${SITE_URL}/#website`,
+    name: "Ajmal AT Portfolio",
+    url: SITE_URL,
+    publisher: { "@id": `${SITE_URL}/#person` },
+  };
+  const webPage = {
+    "@type": page.schemaType,
+    "@id": `${url}#webpage`,
+    url,
+    name: page.title,
+    description: page.description,
+    isPartOf: { "@id": `${SITE_URL}/#website` },
+    about: { "@id": `${SITE_URL}/#person` },
+  };
+
+  if (pageName === "services") {
+    return {
+      "@context": "https://schema.org",
+      "@graph": [
+        person,
+        website,
+        webPage,
+        {
+          "@type": "Service",
+          "@id": `${url}#service`,
+          name: "Web Development Services",
+          provider: { "@id": `${SITE_URL}/#person` },
+          areaServed: "Worldwide",
+          serviceType: "Full stack web development",
+          url,
+        },
+      ],
+    };
+  }
+
+  if (pageName === "projects") {
+    return {
+      "@context": "https://schema.org",
+      "@graph": [
+        person,
+        website,
+        webPage,
+        {
+          "@type": "CreativeWork",
+          "@id": `${url}#portfolio`,
+          name: "Ajmal AT Project Portfolio",
+          creator: { "@id": `${SITE_URL}/#person` },
+          url,
+        },
+      ],
+    };
+  }
+
+  return { "@context": "https://schema.org", "@graph": [person, website, webPage] };
+}
+
+export function seoHead(pageName: keyof typeof seoPages, fallbackTitle?: string) {
+  const page = seoPages[pageName];
+  const url = absoluteUrl(page.path);
+  const title = page.title ?? fallbackTitle;
+
   return {
     meta: [
-      { title: fallbackTitle },
-      { name: "description", content: `Database-managed ${pageName} page for Ajmal AT.` },
-      { property: "og:title", content: fallbackTitle },
-      { property: "og:url", content: pageName === "home" ? "/" : `/${pageName}` },
+      { title },
+      { name: "description", content: page.description },
+      { name: "keywords", content: page.keywords },
+      { name: "robots", content: "index,follow" },
+      { property: "og:title", content: title },
+      { property: "og:description", content: page.description },
+      { property: "og:type", content: "website" },
+      { property: "og:image", content: defaultOgImage },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:url", content: url },
+      { property: "og:site_name", content: "Ajmal AT" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: title },
+      { name: "twitter:description", content: page.description },
+      { name: "twitter:image", content: defaultOgImage },
+      { "script:ld+json": jsonLdForPage(pageName) },
     ],
-    links: [{ rel: "canonical", href: pageName === "home" ? "/" : `/${pageName}` }],
+    links: [{ rel: "canonical", href: url }],
   };
 }
 

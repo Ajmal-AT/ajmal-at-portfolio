@@ -124,12 +124,12 @@ function AdminLayout() {
               className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground"
               activeProps={{
                 className:
-                  "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-foreground bg-white/8 border border-white/8 shadow-sm",
+                  "group flex items-center gap-3 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2.5 text-sm font-medium text-primary shadow-sm",
               }}
             >
               <Icon className="h-4 w-4 shrink-0" />
               <span>{label}</span>
-              <ChevronRight className="ml-auto h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-40 group-[.active]:opacity-60" />
+              <ChevronRight className="ml-auto h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-60" />
             </Link>
           ))}
         </nav>
@@ -159,7 +159,7 @@ function AdminLayout() {
             to={to}
             activeOptions={{ exact: !!exact }}
             className="flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            activeProps={{ className: "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-foreground bg-white/8 border border-white/8" }}
+            activeProps={{ className: "flex shrink-0 items-center gap-1.5 rounded-lg border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary" }}
           >
             <Icon className="h-3.5 w-3.5" />
             {label}

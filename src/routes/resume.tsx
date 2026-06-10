@@ -86,6 +86,8 @@ function ResumeThumbnail({
           <img
             src={thumbnail}
             alt={title}
+            loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover transition-transform duration-500 group-hover/preview:scale-[1.03]"
           />
         </div>
