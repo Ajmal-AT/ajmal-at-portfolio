@@ -28,10 +28,10 @@ export function Footer() {
         <div className="grid gap-10 md:grid-cols-4">
           <div className="md:col-span-2">
             <div className="font-display text-xl font-semibold">
-              <span className="text-white">
+              <span className="text-slate-900 dark:text-slate-100">
                 {profile?.full_name?.split(" ")[0]}
               </span>{" "}
-              <span className="text-blue-500">
+              <span className="text-blue-600 dark:text-blue-400">
                 {profile?.full_name?.split(" ").slice(1).join(" ")}
               </span>
             </div>

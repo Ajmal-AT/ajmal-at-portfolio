@@ -52,7 +52,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "onboarding@resend.dev",   // ← replace with your verified Resend domain
+        from: Deno.env.get("RESEND_FROM_EMAIL"),
         to: email,
         subject: "Your verification code",
         html: `
